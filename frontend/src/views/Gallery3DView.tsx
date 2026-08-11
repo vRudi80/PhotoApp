@@ -10,7 +10,7 @@ import {
   Box, Save, ArrowLeft, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
   Navigation, BookOpen, MessageSquare, Send, X, Clock,
-  Share2, Palette, Layers, Award, Calendar, RefreshCw, UploadCloud, Search
+  Share2, Palette, Layers, Award, Calendar, RefreshCw, UploadCloud, Search, Filter
 } from 'lucide-react';
 
 const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
@@ -364,6 +364,9 @@ export default function Gallery3DView({ user }: { user?: any }) {
   // KERESŐ A PORTFÓLIÓ FOTÓKHOZ
   const [portfolioSearchTerm, setPortfolioSearchTerm] = useState('');
 
+  // 🎯 ÚJ: SZŰRŐ CSAK A KIJELÖLT KÉPEKRE A SZERKESZTŐBEN
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+
   const [showInteractionsModal, setShowInteractionsModal] = useState(false);
   const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
@@ -625,6 +628,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
     setMaxAllowedPhotos(10);
     setSelectedPhotos([]);
     setPortfolioSearchTerm('');
+    setShowSelectedOnly(false);
     setMode('EDIT');
   };
 
@@ -637,6 +641,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
     setMaxAllowedPhotos(pCount > 20 ? 30 : pCount > 10 ? 20 : 10);
     setSelectedPhotos(gal.photos || []);
     setPortfolioSearchTerm('');
+    setShowSelectedOnly(false);
     setMode('EDIT');
   };
 
@@ -765,15 +770,22 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  // Kliensoldali szűrés a portfólió fotókra
+  // 🎯 Kliensoldali szűrés a portfólió fotókra (Kereső + Csak kijelölt szűrő)
   const filteredPortfolioPhotos = useMemo(() => {
-    if (!portfolioSearchTerm.trim()) return myPortfolioPhotos;
+    let list = myPortfolioPhotos;
+
+    if (showSelectedOnly) {
+      const selectedKeys = new Set(selectedPhotos.map(p => getPhotoIdentifier(p)));
+      list = list.filter(photo => selectedKeys.has(getPhotoIdentifier(photo)));
+    }
+
+    if (!portfolioSearchTerm.trim()) return list;
     const term = portfolioSearchTerm.toLowerCase();
-    return myPortfolioPhotos.filter((photo: any) => 
+    return list.filter((photo: any) => 
       (photo.title && photo.title.toLowerCase().includes(term)) ||
       (photo.title_hu && photo.title_hu.toLowerCase().includes(term))
     );
-  }, [myPortfolioPhotos, portfolioSearchTerm]);
+  }, [myPortfolioPhotos, portfolioSearchTerm, showSelectedOnly, selectedPhotos]);
 
   const safeGalleries = Array.isArray(allGalleries) ? allGalleries : [];
   const activeGalleriesList = safeGalleries.filter(g => !g.is_expired);
@@ -1206,7 +1218,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* 🎯 KÉRÉS 1: PUBLIKÁLÁS GOMB ÉS VEZÉRLŐSÁV A SZERKESZTŐ TETEJÉN */}
+          {/* PUBLIKÁLÁS GOMB ÉS VEZÉRLŐSÁV A SZERKESZTŐ TETEJÉN */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '16px 20px', borderRadius: '10px', border: '1px solid var(--border-main)', flexWrap: 'wrap', gap: '15px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <button 
@@ -1348,7 +1360,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
             )}
           </div>
 
-          {/* PORTFÓLIÓ FOTÓK SZEKCIÓ KERESŐVEL ÉS KÉPSZÁM KORLÁT VISSZAJELZÉSSEL */}
+          {/* PORTFÓLIÓ FOTÓK SZEKCIÓ KERESŐVEL ÉS SZŰRŐVEL */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
               <div>
@@ -1361,23 +1373,49 @@ export default function Gallery3DView({ user }: { user?: any }) {
                 </p>
               </div>
 
-              {/* 🎯 KÉRÉS 3: KERESŐ SÁV A FOTÓKHOZ */}
-              <div style={{ position: 'relative', minWidth: '260px' }}>
-                <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                <input 
-                  type="text" 
-                  placeholder="🔍 Keresés fotók címei között..." 
-                  value={portfolioSearchTerm} 
-                  onChange={e => setPortfolioSearchTerm(e.target.value)} 
-                  style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} 
-                />
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* 🎯 KÉRÉS: SZŰRŐ GOMB A KIVÁLASZTOTT KÉPEKRE */}
+                <button 
+                  type="button"
+                  onClick={() => setShowSelectedOnly(prev => !prev)}
+                  style={{
+                    background: showSelectedOnly ? '#10b981' : 'var(--bg-main)',
+                    color: showSelectedOnly ? '#ffffff' : 'var(--text-title)',
+                    border: `1px solid ${showSelectedOnly ? '#10b981' : 'var(--border-main)'}`,
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Filter size={15} /> {showSelectedOnly ? 'Összes fotó mutatása' : `Kiválasztottak (${selectedPhotos.length})`}
+                </button>
+
+                {/* KERESŐ SÁV A FOTÓKHOZ */}
+                <div style={{ position: 'relative', minWidth: '240px' }}>
+                  <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input 
+                    type="text" 
+                    placeholder="🔍 Keresés fotók címei között..." 
+                    value={portfolioSearchTerm} 
+                    onChange={e => setPortfolioSearchTerm(e.target.value)} 
+                    style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} 
+                  />
+                </div>
               </div>
             </div>
             
             {myPortfolioPhotos.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>Még nincs feltöltött fotód a Portfóliódban. Tölts fel egyet fentebb!</div>
             ) : filteredPortfolioPhotos.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>Egyetlen fotó sem felel meg a keresési feltételnek.</div>
+              <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>
+                {showSelectedOnly ? 'Egyetlen fotó sincs még kiválasztva a 3D kiállításhoz.' : 'Egyetlen fotó sem felel meg a keresési feltételnek.'}
+              </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                 {filteredPortfolioPhotos.map((photo, idx) => {
