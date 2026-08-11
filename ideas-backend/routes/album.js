@@ -334,85 +334,54 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   // ====================================================================
   // 6. VALÓDI AI KÉPELEMZÉS (VÉDETT)
   // ====================================================================
- // 🎯 GOLYÓÁLLÓ AI ELEMZÉS VÉGPONT TIMEOUT ÉS CORS VÉDELEMMEL (routes/album.js)
-app.post('/api/my-album/:id/analyze', requireAuth, async (req, res) => {
-  // Garantáljuk a CORS fejléceket minden válaszra (hiba esetén is)
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  app.post('/api/my-album/:id/analyze', requireAuth, checkPremium, async (req, res) => {
+    try {
+      const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.user.email]);
+      if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod vagy a kép nem található!' });
+      
+      const photo = rows[0];
+      if (!photo.drive_file_id) return res.status(400).json({ error: 'Fizikai fájl nem található az AI elemzéshez.' });
 
-  const photoId = req.params.id;
-  const { userEmail } = req.body;
+      const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
+      let imageBuffer = Buffer.from(driveRes.data);
+      const base64Image = imageBuffer.toString('base64');
 
-  try {
-    // 1. Kép lekérése az adatbázisból
-    const [photos] = await pool.query(
-      'SELECT * FROM user_photos WHERE id = ? AND LOWER(user_email) = LOWER(?)',
-      [photoId, userEmail]
-    );
+      imageBuffer = null;
+      driveRes.data = null;
 
-    if (photos.length === 0) {
-      return res.status(404).json({ error: 'A kép nem található az adatbázisban!' });
-    }
-
-    const photo = photos[0];
-    const imageUrl = photo.file_url || (photo.drive_file_id ? `https://lh3.googleusercontent.com/d/${photo.drive_file_id}` : null);
-
-    if (!imageUrl) {
-      return res.status(400).json({ error: 'A képhez nem tartozik érvényes hivatkozás.' });
-    }
-
-    // 2. Gemini AI Elemzés végrehajtása Max 22 másodperces időkorláttal
-    const generateAiPromise = (async () => {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const prompt = "Analyze this photograph for a professional photo contest portfolio. Provide a concise technical evaluation and keywords.";
-
-      // Kép letöltése Buffer-be az elemzéshez
-      const fetch = (await import('node-fetch')).default;
-      const imgRes = await fetch(imageUrl);
-      if (!imgRes.ok) throw new Error("A képet nem sikerült letölteni az AI elemzéshez.");
-
-      const imgBuffer = await imgRes.arrayBuffer();
-      const imagePart = {
-        inlineData: {
-          data: Buffer.from(imgBuffer).toString("base64"),
-          mimeType: imgRes.headers.get("content-type") || "image/jpeg"
-        }
-      };
-
-      const result = await model.generateContent([prompt, imagePart]);
-      const responseText = result.response.text();
-
-      return {
-        evaluation: responseText,
-        tags: "photography, portfolio, contest"
-      };
-    })();
-
-    // Időtúllépési számláló (22 másodperc)
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI_TIMEOUT')), 22000)
-    );
-
-    // Versenyeztetjük az AI hívást és a számlálót
-    const aiResult = await Promise.race([generateAiPromise, timeoutPromise]);
-
-    // 3. Eredmény elmentése az adatbázisba
-    const aiTagsJson = JSON.stringify(aiResult);
-    await pool.query('UPDATE user_photos SET ai_tags = ? WHERE id = ?', [aiTagsJson, photoId]);
-
-    res.json({ success: true, ai_tags: aiTagsJson });
-
-  } catch (err) {
-    console.error("❌ Hiba az AI elemzés során:", err.message);
-
-    if (err.message === 'AI_TIMEOUT') {
-      return res.status(504).json({ 
-        error: 'Az AI elemzés túllépte a maximális várakozási időt (22 mp). A Google Gemini szerverei leterheltek, kérlek próbáld újra pár pillanat múlva!' 
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash",
+        generationConfig: { responseMimeType: "application/json" } 
       });
-    }
 
-    res.status(500).json({ 
-      error: `Szerveroldali hiba az AI elemzéskor: ${err.message}` 
-    });
-  }
-});
+      const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót. 
+  KIZÁRÓLAG egy érvényes JSON objektumot adj vissza!
+  A JSON pontos struktúrája ez legyen:
+  {
+    "evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte zsűri értékelést. Térj ki a kompozícióra, fényekre, és a kategóriára. Ne használj idézőjeleket ezen a szövegen binnen!",
+    "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva (pl: monochrome, portrait)"
+  }`;
+
+      const imagePart = { inlineData: { data: base64Image, mimeType: "image/jpeg" } };
+      const result = await model.generateContent([prompt, imagePart]);
+      const response = await result.response;
+      let text = response.text();
+
+      const jsonStart = text.indexOf('{');
+      const jsonEnd = text.lastIndexOf('}');
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Hibás JSON");
+
+      text = text.substring(jsonStart, jsonEnd + 1);
+      JSON.parse(text); 
+
+      await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
+      res.json({ success: true, ai_tags: text });
+    } catch (err) {
+      console.error('Gemini hiba:', err.message);
+      if (err.message.includes('503') || err.message.includes('overloaded')) {
+        return res.status(503).json({ error: 'Az AI szerverek leterheltek. Próbáld újra 1-2 perc múlva!' });
+      }
+      return res.status(500).json({ error: 'AI elemzés sikertelen. Próbáld újra később!' });
+    }
+  });
+};
