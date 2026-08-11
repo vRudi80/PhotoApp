@@ -815,7 +815,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  // 🎯 GOLYÓÁLLÓ KLIENSOLDALI SZŰRÉS
+  // 🎯 GOLYÓÁLLÓ KLIENSOLDALI SZŰRÉS (Összefésüli a portfóliót és a kiválasztott képeket)
   const filteredPortfolioPhotos = useMemo(() => {
     const combinedMap = new Map<string, any>();
 
@@ -842,7 +842,9 @@ export default function Gallery3DView({ user }: { user?: any }) {
     const term = portfolioSearchTerm.toLowerCase();
     return list.filter((photo: any) => 
       (photo.title && String(photo.title).toLowerCase().includes(term)) ||
-      (photo.title_hu && String(photo.title_hu).toLowerCase().includes(term))
+      (photo.title_hu && String(photo.title_hu).toLowerCase().includes(term)) ||
+      (photo.ai_tags && String(photo.ai_tags).toLowerCase().includes(term)) ||
+      (photo.tags && String(photo.tags).toLowerCase().includes(term))
     );
   }, [myPortfolioPhotos, portfolioSearchTerm, showSelectedOnly, selectedPhotos]);
 
@@ -1433,7 +1435,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
               </div>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* 🎯 SZŰRŐ GOMB A KIVÁLASZTOTT KÉPEKRE */}
+                {/* SZŰRŐ GOMB A KIVÁLASZTOTT KÉPEKRE */}
                 <button 
                   type="button"
                   onClick={() => setShowSelectedOnly(prev => !prev)}
@@ -1460,7 +1462,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
                   <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                   <input 
                     type="text" 
-                    placeholder="🔍 Keresés fotók címei között..." 
+                    placeholder="🔍 Keresés cím vagy AI tag alapján..." 
                     value={portfolioSearchTerm} 
                     onChange={e => setPortfolioSearchTerm(e.target.value)} 
                     style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} 
