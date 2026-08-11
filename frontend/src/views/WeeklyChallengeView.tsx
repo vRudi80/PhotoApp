@@ -36,7 +36,8 @@ import {
   Share2, 
   Info,
   BookOpen,
-  Coins
+  Coins,
+  AlertTriangle
 } from 'lucide-react';
 
 interface WeeklyChallengeViewProps {
@@ -72,7 +73,6 @@ const ARENA_LEVELS_REGISTRY = [
   { id: 11, name: 'Legenda 👑', minLikes: 10000, minVictories: 15 }
 ];
 
-// 🎯 TOP-DOWN (FELÜLRŐL LEFELÉ HALADÓ) PONTOS RANGSZÁMÍTÓ LOGIKA (ÉSKAPCSOLAT)
 const getLevelDetails = (likes: number, victories: number) => {
   const fp = Number(likes) || 0;
   const vic = Number(victories) || 0;
@@ -140,7 +140,7 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 // ====================================================================
-// 📊 SELEKCIÓS KÁRTYA KOMPONENS
+// 📊 SELEKCIÓS KÁRTYA KOMPONENS (KIEMELT SZAVAZÁSI FIGYELMEZTETÉSSEL)
 // ====================================================================
 function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () => void, onShare: () => void }) {
   const { t, lang } = useLanguage();
@@ -200,9 +200,20 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
   return (
     <div 
       onClick={onSelect}
-      style={{ background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-main)', padding: '22px', cursor: 'pointer', transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', position: 'relative' }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border-main)'; }}
+      style={{ 
+        background: 'var(--bg-card)', 
+        borderRadius: '8px', 
+        border: unvotedCount > 0 ? '2px solid #ef4444' : '1px solid var(--border-main)', 
+        padding: '22px', 
+        cursor: 'pointer', 
+        transition: 'all 0.2s ease-in-out', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        position: 'relative',
+        boxShadow: unvotedCount > 0 ? '0 0 15px rgba(239, 68, 68, 0.2)' : 'none'
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = unvotedCount > 0 ? '#ef4444' : (isDaily ? '#ef4444' : '#3b82f6'); }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = unvotedCount > 0 ? '#ef4444' : 'var(--border-main)'; }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
         <span style={{ background: isDaily ? 'rgba(239,68,68,0.08)' : 'rgba(59,130,246,0.08)', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}`, padding: '3px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
@@ -240,10 +251,24 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
 
+        {/* 🎯 FELTŰNŐ FIGYELMEZTETÉS, HA NINCS MINDENRE SZAVAZVA */}
         {unvotedCount > 0 && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(249,115,22,0.06)', padding: '5px 10px', borderRadius: '4px', border: '1px solid rgba(249,115,22,0.15)', whiteSpace: 'nowrap' }}>
-            <span>Aktivitás:</span>
-            <span style={{ color: '#ffedd5' }}>{unvotedCount} db szavazásra vár</span>
+          <div style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            color: '#ffffff', 
+            fontSize: '0.78rem', 
+            fontWeight: '800', 
+            background: 'linear-gradient(135deg, #ef4444, #f97316)', 
+            padding: '6px 12px', 
+            borderRadius: '6px', 
+            boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)', 
+            whiteSpace: 'nowrap',
+            animation: 'arenaPulse 1.8s infinite' 
+          }}>
+            <AlertTriangle size={14} color="#ffffff" />
+            <span>{unvotedCount} db kép szavazásra vár! (Pontvesztés!)</span>
           </div>
         )}
       </div>
@@ -353,6 +378,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
+
+  // 🎯 KINYERJÜK, HOGY HÁNY JÁTÉKBAN VAN HIÁNYZÓ SZAVAZAT
+  const unvotedTopicsCount = useMemo(() => {
+    return activeTopics.filter(t => (t.unvotedEntries ?? t.unvoted_count ?? 0) > 0).length;
+  }, [activeTopics]);
 
   useEffect(() => {
     setShareBase64(null);
@@ -598,9 +628,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId, user?.email]);
 
+  // 🎯 FIGYELEM: ZÓNAVÁLTÁSKOR/JÁTÉKVÁLTÁSKOR MINDKÉT LEFAGYÁSI BIZTOSÍTÉK TÖRLŐDIK!
   useEffect(() => {
     setTopic(null); setMyEntry(null); setMyPastEntries([]); setVoteEntry(null); setLeaderboard([]); setCurrentClubLeaderboard([]); setTimeLeft(''); setPastLeaderboard([]); setPastClubLeaderboard([]); setMasterVotesLeft(0); setIsMaster(false); setHasNewMessage(false);
-  }, [selectedTopicId, user?.email]);
+    
+    // 🎯 LEFAGYÁS ÉS BERAGADÓ TÖLTÉS VÉDELME:
+    setIsUploading(false);
+    setUploadFile(null);
+    if (uploadPreview) URL.revokeObjectURL(uploadPreview);
+    setUploadPreview(null);
+    setIsSwapping(false);
+    setSwapFile(null);
+    if (swapPreview) URL.revokeObjectURL(swapPreview);
+    setSwapPreview(null);
+    setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
+    setSwapCamera(''); setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
+  }, [selectedTopicId, subTab, user?.email]);
 
   useEffect(() => {
     isChatOpenRef.current = isChatOpen;
@@ -847,9 +890,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setUploadFile(null); if (uploadPreview) URL.revokeObjectURL(uploadPreview); setUploadPreview(null);
         setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
         await fetchCurrentTopic(true); fetchAlbumSilently(); 
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Hiba a feltöltés során!");
       }
-    } catch (e) { console.error(e); } 
-    finally { setIsUploading(false); }
+    } catch (e) { 
+      console.error(e); 
+      alert("Hálózati hiba történt!");
+    } 
+    finally { 
+      setIsUploading(false); 
+    }
   };
 
   const handleFileSelectForSwap = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1160,6 +1211,33 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <>
             {selectedTopicId === null ? (
               <div className="arena-fluid-container">
+                
+                {/* 🎯 FELTŰNŐ FIGYELMEZTETŐ BANNER AZ AKTÍV FŐOLDAL TETEJÉN */}
+                {unvotedTopicsCount > 0 && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(249, 115, 22, 0.15))',
+                    border: '2px solid #ef4444',
+                    borderRadius: '8px',
+                    padding: '16px 20px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    boxShadow: '0 4px 15px rgba(239, 68, 68, 0.2)',
+                    animation: 'arenaPulse 2s infinite'
+                  }}>
+                    <AlertTriangle size={28} color="#ef4444" style={{ flexShrink: 0 }} />
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', color: '#f87171', fontSize: '1.05rem', fontWeight: 'bold' }}>
+                        ⚠️ Figyelem! Még nem szavaztál minden képre!
+                      </h4>
+                      <p style={{ margin: 0, color: 'var(--text-title)', fontSize: '0.88rem', lineHeight: '1.4' }}>
+                        {unvotedTopicsCount} aktív játékban van hiányzó szavazatod. Ha nem szavazol az összes képre, a saját képeid láthatósága és pontszáma csökken!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
                   {activeTopics.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1389,7 +1467,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         .chat-dock-body { padding: 12px; height: 380px; display: flex; flex-direction: column; }
         .chat-messages-scroll-area { background: var(--bg-main); border: 1px solid var(--border-main); border-radius: 4px; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
         .chat-notification-badge { position: absolute; top: -1px; left: -2px; width: 6px; height: 6px; background: #ef4444; border-radius: 50%; }
-        @keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+        @keyframes arenaPulse { 0%, 100% { opacity: 0.65; } 50% { opacity: 1; } }
         @media (max-width: 480px) { .arena-floating-chat-dock { right: 10px; width: calc(100% - 20px); } }
       `}</style>
 
