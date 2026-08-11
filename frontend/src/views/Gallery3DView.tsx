@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -10,7 +10,7 @@ import {
   Box, Save, ArrowLeft, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
   Navigation, BookOpen, MessageSquare, Send, X, Clock,
-  Share2, Palette, Layers, Award, Calendar, RefreshCw, UploadCloud
+  Share2, Palette, Layers, Award, Calendar, RefreshCw, UploadCloud, Search
 } from 'lucide-react';
 
 const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
@@ -354,12 +354,15 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // KÖZVETLEN FOTO FELTÖLTÉS A PORTFÓLIÓBA
+  // KÖZVETLEN FOTÓ FELTÖLTÉS A PORTFÓLIÓBA
   const [inlineUploadTitle, setInlineUploadTitle] = useState('');
   const [inlineUploadFile, setInlineUploadFile] = useState<File | null>(null);
   const [inlineUploadPreview, setInlineUploadPreview] = useState<string | null>(null);
   const [isInlineUploading, setIsInlineUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // KERESŐ A PORTFÓLIÓ FOTÓKHOZ
+  const [portfolioSearchTerm, setPortfolioSearchTerm] = useState('');
 
   const [showInteractionsModal, setShowInteractionsModal] = useState(false);
   const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
@@ -421,7 +424,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     return preloaded;
   };
 
-  // 🎯 FIX: user.email függőség használata a teljes user objektum helyett (újratöltődések megelőzése)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const targetToken = urlParams.get('token') || urlParams.get('id');
@@ -622,6 +624,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
     setVisibility('public');
     setMaxAllowedPhotos(10);
     setSelectedPhotos([]);
+    setPortfolioSearchTerm('');
     setMode('EDIT');
   };
 
@@ -633,6 +636,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
     const pCount = gal.photos?.length || 0;
     setMaxAllowedPhotos(pCount > 20 ? 30 : pCount > 10 ? 20 : 10);
     setSelectedPhotos(gal.photos || []);
+    setPortfolioSearchTerm('');
     setMode('EDIT');
   };
 
@@ -695,12 +699,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
       if (res.ok) {
         const uploadedData = await res.json();
-        alert('Kép sikeresen feltöltve a Portfóliódba és hozzáadva a kiválasztott képekhez!');
-        setInlineUploadFile(null);
-        setInlineUploadPreview(null);
-        setInlineUploadTitle('');
-        if (fileInputRef.current) fileInputRef.current.value = '';
-
+        
         // Portfólió frissítése a háttérben
         const portfolioRes = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() });
         if (portfolioRes.ok) {
@@ -708,11 +707,22 @@ export default function Gallery3DView({ user }: { user?: any }) {
           setMyPortfolioPhotos(Array.isArray(freshPortfolio) ? freshPortfolio : []);
           
           const newPhoto = freshPortfolio.find((p: any) => p.file_url === uploadedData.file_url || p.title === inlineUploadTitle.trim()) || uploadedData;
-          if (newPhoto && selectedPhotos.length < maxAllowedPhotos) {
-            const photoUrl = resolvePhotoUrl(newPhoto);
-            setSelectedPhotos(prev => [...prev, { id: newPhoto.id, drive_file_id: newPhoto.drive_file_id, file_url: photoUrl, title: inlineUploadTitle.trim() }]);
+          
+          if (newPhoto) {
+            if (selectedPhotos.length < maxAllowedPhotos) {
+              const photoUrl = resolvePhotoUrl(newPhoto);
+              setSelectedPhotos(prev => [...prev, { id: newPhoto.id, drive_file_id: newPhoto.drive_file_id, file_url: photoUrl, title: inlineUploadTitle.trim() }]);
+              alert('Kép sikeresen feltöltve a Portfóliódba és hozzáadva a 3D kiállításhoz!');
+            } else {
+              alert(`Kép sikeresen feltöltve a Portfóliódba! Viszont a 3D kiállításod megtelt (Max. ${maxAllowedPhotos} kép), így a kiállításba nem került be automatikusan.`);
+            }
           }
         }
+
+        setInlineUploadFile(null);
+        setInlineUploadPreview(null);
+        setInlineUploadTitle('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
       } else {
         const err = await res.json().catch(() => ({}));
         alert(err.error || 'Hiba a kép feltöltése során.');
@@ -754,6 +764,16 @@ export default function Gallery3DView({ user }: { user?: any }) {
       setIsSaving(false);
     }
   };
+
+  // Kliensoldali szűrés a portfólió fotókra
+  const filteredPortfolioPhotos = useMemo(() => {
+    if (!portfolioSearchTerm.trim()) return myPortfolioPhotos;
+    const term = portfolioSearchTerm.toLowerCase();
+    return myPortfolioPhotos.filter((photo: any) => 
+      (photo.title && photo.title.toLowerCase().includes(term)) ||
+      (photo.title_hu && photo.title_hu.toLowerCase().includes(term))
+    );
+  }, [myPortfolioPhotos, portfolioSearchTerm]);
 
   const safeGalleries = Array.isArray(allGalleries) ? allGalleries : [];
   const activeGalleriesList = safeGalleries.filter(g => !g.is_expired);
@@ -1186,6 +1206,29 @@ export default function Gallery3DView({ user }: { user?: any }) {
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
+          {/* 🎯 KÉRÉS 1: PUBLIKÁLÁS GOMB ÉS VEZÉRLŐSÁV A SZERKESZTŐ TETEJÉN */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '16px 20px', borderRadius: '10px', border: '1px solid var(--border-main)', flexWrap: 'wrap', gap: '15px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button 
+                onClick={() => setMode('DIRECTORY')} 
+                style={{ background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-muted)', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <ArrowLeft size={16} /> Mégse
+              </button>
+              <span style={{ color: 'var(--text-title)', fontWeight: 'bold', fontSize: '1.05rem' }}>
+                {editingGalleryId ? 'Kiállítás Szerkesztése' : 'Új Kiállítás Létrehozása'}
+              </span>
+            </div>
+
+            <button 
+              onClick={handleSave} 
+              disabled={isSaving || selectedPhotos.length === 0} 
+              style={{ background: selectedPhotos.length > 0 ? '#10b981' : 'var(--border-main)', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: selectedPhotos.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: selectedPhotos.length > 0 ? '0 4px 15px rgba(16,185,129,0.3)' : 'none' }}
+            >
+              <Save size={18} /> {isSaving ? 'Mentés...' : '3D Kiállítás Publikálása'}
+            </button>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
               <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '8px' }}>Kiállítás Címe:</label>
@@ -1305,15 +1348,39 @@ export default function Gallery3DView({ user }: { user?: any }) {
             )}
           </div>
 
+          {/* PORTFÓLIÓ FOTÓK SZEKCIÓ KERESŐVEL ÉS KÉPSZÁM KORLÁT VISSZAJELZÉSSEL */}
           <div>
-            <h3 style={{ color: 'var(--text-title)', marginBottom: '6px' }}>Válassz ki fotókat a Portfóliódból:</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '15px' }}>Kiválasztva: <b>{selectedPhotos.length}</b> / {maxAllowedPhotos} fotó</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <h3 style={{ color: 'var(--text-title)', margin: 0, fontSize: '1.15rem' }}>Válassz ki fotókat a Portfóliódból:</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                  Kiválasztva: <b style={{ color: selectedPhotos.length >= maxAllowedPhotos ? '#ef4444' : '#10b981' }}>{selectedPhotos.length}</b> / {maxAllowedPhotos} fotó
+                  {selectedPhotos.length >= maxAllowedPhotos && (
+                    <span style={{ color: '#ef4444', marginLeft: '10px', fontWeight: 'bold' }}>⚠️ A kiállításod megtelt! Új kép kiválasztásához törölj egyet a kijelöltek közül.</span>
+                  )}
+                </p>
+              </div>
+
+              {/* 🎯 KÉRÉS 3: KERESŐ SÁV A FOTÓKHOZ */}
+              <div style={{ position: 'relative', minWidth: '260px' }}>
+                <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input 
+                  type="text" 
+                  placeholder="🔍 Keresés fotók címei között..." 
+                  value={portfolioSearchTerm} 
+                  onChange={e => setPortfolioSearchTerm(e.target.value)} 
+                  style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} 
+                />
+              </div>
+            </div>
             
             {myPortfolioPhotos.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>Még nincs feltöltött fotód a Portfóliódban. Tölts fel egyet fentebb!</div>
+            ) : filteredPortfolioPhotos.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>Egyetlen fotó sem felel meg a keresési feltételnek.</div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
-                {myPortfolioPhotos.map((photo, idx) => {
+                {filteredPortfolioPhotos.map((photo, idx) => {
                   const photoKey = getPhotoIdentifier(photo);
                   const selectedObj = selectedPhotos.find(p => getPhotoIdentifier(p) === photoKey);
                   const isSelected = !!selectedObj;
