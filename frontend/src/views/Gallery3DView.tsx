@@ -90,10 +90,19 @@ const resolvePhotoUrl = (photo: any) => {
   return getImageUrl(photo.drive_file_id, photo.file_url) || photo.file_url || '';
 };
 
-const getPhotoIdentifier = (p: any) => {
-  if (!p) return `id_rand_${Math.random()}`;
+// 🎯 GOLYÓÁLLÓ AZONOSÍTÓ GENERÁTOR (A kép URL-je és Drive ID-ja alapján párosít)
+const getPhotoKey = (p: any) => {
+  if (!p) return '';
+  if (p.drive_file_id && String(p.drive_file_id).trim().length > 5) {
+    return `drive_${String(p.drive_file_id).trim()}`;
+  }
+  const rawUrl = p.file_url || p.fileUrl;
+  if (rawUrl && String(rawUrl).trim().length > 0) {
+    const cleanUrl = String(rawUrl).split('?')[0].trim().toLowerCase();
+    return `url_${cleanUrl}`;
+  }
   if (p.id) return `id_${p.id}`;
-  return `url_${resolvePhotoUrl(p)}`;
+  return '';
 };
 
 function WalkingController({ 
@@ -364,7 +373,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
   // KERESŐ A PORTFÓLIÓ FOTÓKHOZ
   const [portfolioSearchTerm, setPortfolioSearchTerm] = useState('');
 
-  // 🎯 ÚJ: SZŰRŐ CSAK A KIJELÖLT KÉPEKRE A SZERKESZTŐBEN
+  // SZŰRŐ CSAK A KIJELÖLT KÉPEKRE A SZERKESZTŐBEN
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
 
   const [showInteractionsModal, setShowInteractionsModal] = useState(false);
@@ -662,23 +671,30 @@ export default function Gallery3DView({ user }: { user?: any }) {
   };
 
   const toggleSelectPhoto = (photo: any) => {
-    const photoKey = getPhotoIdentifier(photo);
-    const isAlreadySelected = selectedPhotos.some(p => getPhotoIdentifier(p) === photoKey);
+    const photoKey = getPhotoKey(photo);
+    if (!photoKey) return;
+
+    const isAlreadySelected = selectedPhotos.some(p => getPhotoKey(p) === photoKey);
 
     if (isAlreadySelected) {
-      setSelectedPhotos(prev => prev.filter(p => getPhotoIdentifier(p) !== photoKey));
+      setSelectedPhotos(prev => prev.filter(p => getPhotoKey(p) !== photoKey));
     } else {
       if (selectedPhotos.length >= maxAllowedPhotos) {
         return alert(`A jelenleg kiválasztott csomagban legfeljebb ${maxAllowedPhotos} fotót választhatsz ki! Válts nagyobb csomagra fentebb, ha többet szeretnél.`);
       }
       const photoUrl = resolvePhotoUrl(photo);
       const initialTitle = photo.title || photo.title_hu || '';
-      setSelectedPhotos(prev => [...prev, { id: photo.id, drive_file_id: photo.drive_file_id, file_url: photoUrl, title: initialTitle }]);
+      setSelectedPhotos(prev => [...prev, { 
+        id: photo.id, 
+        drive_file_id: photo.drive_file_id, 
+        file_url: photoUrl, 
+        title: initialTitle 
+      }]);
     }
   };
 
   const updatePhotoTitle = (photoKey: string, newTitle: string) => {
-    setSelectedPhotos(prev => prev.map(p => getPhotoIdentifier(p) === photoKey ? { ...p, title: newTitle } : p));
+    setSelectedPhotos(prev => prev.map(p => getPhotoKey(p) === photoKey ? { ...p, title: newTitle } : p));
   };
 
   // KÖZVETLEN FELTÖLTÉS A PORTFÓLIÓBA A TÁRLATSZERKESZTŐBŐL
@@ -770,20 +786,37 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  // 🎯 Kliensoldali szűrés a portfólió fotókra (Kereső + Csak kijelölt szűrő)
+  // 🎯 GOLYÓÁLLÓ KLIENSOLDALI SZŰRÉS (Összefésüli a portfóliót és a kiválasztott képeket)
   const filteredPortfolioPhotos = useMemo(() => {
-    let list = myPortfolioPhotos;
+    // 1. Egyesítjük a portfólió képeit és a kiválasztott képeket a getPhotoKey alapján
+    const combinedMap = new Map<string, any>();
 
+    (myPortfolioPhotos || []).forEach(p => {
+      const k = getPhotoKey(p);
+      if (k) combinedMap.set(k, p);
+    });
+
+    (selectedPhotos || []).forEach(sp => {
+      const k = getPhotoKey(sp);
+      if (k && !combinedMap.has(k)) {
+        combinedMap.set(k, sp);
+      }
+    });
+
+    let list = Array.from(combinedMap.values());
+
+    // 2. "Csak a kiválasztott képek" szűrés
     if (showSelectedOnly) {
-      const selectedKeys = new Set(selectedPhotos.map(p => getPhotoIdentifier(p)));
-      list = list.filter(photo => selectedKeys.has(getPhotoIdentifier(photo)));
+      const selectedKeys = new Set(selectedPhotos.map(p => getPhotoKey(p)).filter(Boolean));
+      list = list.filter(photo => selectedKeys.has(getPhotoKey(photo)));
     }
 
+    // 3. Szöveges keresés a képek címeiben
     if (!portfolioSearchTerm.trim()) return list;
     const term = portfolioSearchTerm.toLowerCase();
     return list.filter((photo: any) => 
-      (photo.title && photo.title.toLowerCase().includes(term)) ||
-      (photo.title_hu && photo.title_hu.toLowerCase().includes(term))
+      (photo.title && String(photo.title).toLowerCase().includes(term)) ||
+      (photo.title_hu && String(photo.title_hu).toLowerCase().includes(term))
     );
   }, [myPortfolioPhotos, portfolioSearchTerm, showSelectedOnly, selectedPhotos]);
 
@@ -1374,7 +1407,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
               </div>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* 🎯 KÉRÉS: SZŰRŐ GOMB A KIVÁLASZTOTT KÉPEKRE */}
+                {/* 🎯 SZŰRŐ GOMB A KIVÁLASZTOTT KÉPEKRE */}
                 <button 
                   type="button"
                   onClick={() => setShowSelectedOnly(prev => !prev)}
@@ -1419,8 +1452,8 @@ export default function Gallery3DView({ user }: { user?: any }) {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                 {filteredPortfolioPhotos.map((photo, idx) => {
-                  const photoKey = getPhotoIdentifier(photo);
-                  const selectedObj = selectedPhotos.find(p => getPhotoIdentifier(p) === photoKey);
+                  const photoKey = getPhotoKey(photo);
+                  const selectedObj = selectedPhotos.find(p => getPhotoKey(p) === photoKey);
                   const isSelected = !!selectedObj;
 
                   return (
