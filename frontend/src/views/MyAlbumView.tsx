@@ -121,7 +121,15 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
-
+// 🎯 HIÁNYZÓ FÁJLVÁLASZTÓ FÜGGVÉNY BEILLESZTÉSE
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+    const file = e.target.files[0];
+    setUploadFile(file);
+    setUploadPreview(URL.createObjectURL(file));
+  }
+};
+  
   const handleDownload = (photo: any) => {
     if (photo.file_size === -1 || !photo.drive_file_id || photo.drive_file_id.length < 15 || photo.drive_file_id.includes('http')) {
       alert(t('msgAlbumLegacyDownloadError') || "⚠️ Ez egy korábbi rendszerből származó fotó, a letöltés nem lehetséges.");
