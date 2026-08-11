@@ -179,6 +179,7 @@ export default function ArenaActiveRoom({
   const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
   const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
 
+  // 🎯 SZAVAZÁS ELKÜLDÉSE ALERT ABLAK NÉLKÜL -> KÖZVETLEN MEGSZAKÍTÁSMENTES FRISSÍTÉS
   const handleBatchSubmit = async () => {
     const totalVoted = Object.keys(pendingVotes).length;
     if (totalVoted < batchVoteEntries.length) {
@@ -197,7 +198,6 @@ export default function ArenaActiveRoom({
       });
 
       await Promise.all(votePromises);
-      alert(t('roomBatchAlertSuccess'));
       setPendingVotes({});
       await fetchCurrentTopic(true);
     } catch (e) {
