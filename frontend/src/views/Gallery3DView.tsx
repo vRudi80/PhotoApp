@@ -90,18 +90,42 @@ const resolvePhotoUrl = (photo: any) => {
   return getImageUrl(photo.drive_file_id, photo.file_url) || photo.file_url || '';
 };
 
-// 🎯 GOLYÓÁLLÓ AZONOSÍTÓ GENERÁTOR (A kép URL-je és Drive ID-ja alapján párosít)
+// 🎯 GOLYÓÁLLÓ EGYEDI KÉP-AZONOSÍTÓ GENERÁTOR
 const getPhotoKey = (p: any) => {
   if (!p) return '';
-  if (p.drive_file_id && String(p.drive_file_id).trim().length > 5) {
-    return `drive_${String(p.drive_file_id).trim()}`;
+
+  // 1. Elsődlegesen Google Drive ID ellenőrzése
+  let driveId = p.drive_file_id || p.driveFileId;
+  if (driveId && String(driveId).trim().length > 5) {
+    return `drive_${String(driveId).trim()}`;
   }
-  const rawUrl = p.file_url || p.fileUrl;
+
+  // 2. Másodlagosan URL kiértékelés (Google Drive kód kinyerése URL-ből ha van)
+  const rawUrl = p.file_url || p.fileUrl || p.url || '';
   if (rawUrl && String(rawUrl).trim().length > 0) {
-    const cleanUrl = String(rawUrl).split('?')[0].trim().toLowerCase();
-    return `url_${cleanUrl}`;
+    const urlStr = String(rawUrl).trim();
+    
+    const driveMatch = urlStr.match(/\/d\/([a-zA-Z0-9_-]{10,})/) || urlStr.match(/id=([a-zA-Z0-9_-]{10,})/);
+    if (driveMatch && driveMatch[1]) {
+      return `drive_${driveMatch[1]}`;
+    }
+
+    // Cloudinary és egyéb webes URL-ek tisztítása (Verziószám és protokoll levágása)
+    let clean = urlStr
+      .replace(/^https?:\/\//i, '')
+      .split('?')[0]
+      .replace(/\/v\d+\//, '/')
+      .toLowerCase()
+      .trim();
+
+    if (clean.length > 0) {
+      return `url_${clean}`;
+    }
   }
+
+  // 3. Harmadlagosan adatbázis rekord azonosító
   if (p.id) return `id_${p.id}`;
+
   return '';
 };
 
@@ -686,7 +710,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
       const initialTitle = photo.title || photo.title_hu || '';
       setSelectedPhotos(prev => [...prev, { 
         id: photo.id, 
-        drive_file_id: photo.drive_file_id, 
+        drive_file_id: photo.drive_file_id || photo.driveFileId || '', 
         file_url: photoUrl, 
         title: initialTitle 
       }]);
@@ -732,7 +756,12 @@ export default function Gallery3DView({ user }: { user?: any }) {
           if (newPhoto) {
             if (selectedPhotos.length < maxAllowedPhotos) {
               const photoUrl = resolvePhotoUrl(newPhoto);
-              setSelectedPhotos(prev => [...prev, { id: newPhoto.id, drive_file_id: newPhoto.drive_file_id, file_url: photoUrl, title: inlineUploadTitle.trim() }]);
+              setSelectedPhotos(prev => [...prev, { 
+                id: newPhoto.id, 
+                drive_file_id: newPhoto.drive_file_id || newPhoto.driveFileId || '', 
+                file_url: photoUrl, 
+                title: inlineUploadTitle.trim() 
+              }]);
               alert('Kép sikeresen feltöltve a Portfóliódba és hozzáadva a 3D kiállításhoz!');
             } else {
               alert(`Kép sikeresen feltöltve a Portfóliódba! Viszont a 3D kiállításod megtelt (Max. ${maxAllowedPhotos} kép), így a kiállításba nem került be automatikusan.`);
@@ -786,9 +815,8 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  // 🎯 GOLYÓÁLLÓ KLIENSOLDALI SZŰRÉS (Összefésüli a portfóliót és a kiválasztott képeket)
+  // 🎯 GOLYÓÁLLÓ KLIENSOLDALI SZŰRÉS
   const filteredPortfolioPhotos = useMemo(() => {
-    // 1. Egyesítjük a portfólió képeit és a kiválasztott képeket a getPhotoKey alapján
     const combinedMap = new Map<string, any>();
 
     (myPortfolioPhotos || []).forEach(p => {
@@ -805,13 +833,11 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
     let list = Array.from(combinedMap.values());
 
-    // 2. "Csak a kiválasztott képek" szűrés
     if (showSelectedOnly) {
       const selectedKeys = new Set(selectedPhotos.map(p => getPhotoKey(p)).filter(Boolean));
       list = list.filter(photo => selectedKeys.has(getPhotoKey(photo)));
     }
 
-    // 3. Szöveges keresés a képek címeiben
     if (!portfolioSearchTerm.trim()) return list;
     const term = portfolioSearchTerm.toLowerCase();
     return list.filter((photo: any) => 
