@@ -140,7 +140,7 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 // ====================================================================
-// 📊 SELEKCIÓS KÁRTYA KOMPONENS (KIEMELT SZAVAZÁSI FIGYELMEZTETÉSSEL)
+// 📊 SELEKCIÓS KÁRTYA KOMPONENS (SZIGORÚ NEVEZÉSI ELLENŐRZÉSSEL)
 // ====================================================================
 function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () => void, onShare: () => void }) {
   const { t, lang } = useLanguage();
@@ -190,7 +190,10 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
   const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
 
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
-  const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
+  
+  // 🎯 CSAK AKKOR SZÁMÍTJUK A HIÁNYZÓ SZAVAZATOKAT, HA A USER MÁR NEVEZETT VAGY Ő A KÉPMESTER!
+  const rawUnvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
+  const unvotedCount = (topic.hasEntered || isMaster) ? rawUnvotedCount : 0;
   
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation(); 
@@ -251,7 +254,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
 
-       {/* 🎯 KÁRTYA KERETÉBE IGAZÍTOTT JELVÉNY */}
+        {/* 🎯 FIGYELMEZTETŐ BARKÓS CSAK AKKOR, HA MÁR NEVEZETT ÉS MÉR VAN MIVEL SZAVAZNIA */}
         {unvotedCount > 0 && (
           <div style={{ 
             display: 'inline-flex', 
@@ -381,9 +384,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
 
-  // 🎯 KINYERJÜK, HOGY HÁNY JÁTÉKBAN VAN HIÁNYZÓ SZAVAZAT
+  // 🎯 CSAK AKKOR SZÁMOLJUK AZ ACTIVE TOPICOT, HA A USER MÁR NEVEZETT VAGY Ő A KÉPMESTER!
   const unvotedTopicsCount = useMemo(() => {
-    return activeTopics.filter(t => (t.unvotedEntries ?? t.unvoted_count ?? 0) > 0).length;
+    return activeTopics.filter(t => (t.hasEntered || t.isMaster) && (t.unvotedEntries ?? t.unvoted_count ?? 0) > 0).length;
   }, [activeTopics]);
 
   useEffect(() => {
@@ -630,11 +633,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId, user?.email]);
 
-  // 🎯 FIGYELEM: ZÓNAVÁLTÁSKOR/JÁTÉKVÁLTÁSKOR MINDKÉT LEFAGYÁSI BIZTOSÍTÉK TÖRLŐDIK!
   useEffect(() => {
     setTopic(null); setMyEntry(null); setMyPastEntries([]); setVoteEntry(null); setLeaderboard([]); setCurrentClubLeaderboard([]); setTimeLeft(''); setPastLeaderboard([]); setPastClubLeaderboard([]); setMasterVotesLeft(0); setIsMaster(false); setHasNewMessage(false);
     
-    // 🎯 LEFAGYÁS ÉS BERAGADÓ TÖLTÉS VÉDELME:
     setIsUploading(false);
     setUploadFile(null);
     if (uploadPreview) URL.revokeObjectURL(uploadPreview);
@@ -927,7 +928,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       } catch (e) {
         setSwapCamera('');
-        setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
+        setSwapLens(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
       }
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) finalFile = await compressImageOnClient(rawFile);
@@ -1016,13 +1017,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           photoImgEl.onerror = () => resolve();
         });
       } else if (photoImgEl && typeof photoImgEl.decode === 'function') {
-        try { await photoImgEl.decode(); } catch (e) { /* ignore */ }
+        try { await photoImgEl.decode(); } catch (e) {}
       }
 
       await toPng(node, { cacheBust: true, pixelRatio: 1 });
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0, pixelRatio: 1 });
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `Arena_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
+      const file = new File([blob], `Arena_Award_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
       const getOrdinalStr = (rankNum: number) => {
         if (lang === 'hu') return `${rankNum}.`;
         const m = rankNum % 10, n = rankNum % 100;
@@ -1035,8 +1036,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: t('msgShareTitle'), text: shareTextCompiled });
       } else {
-        const link = document.createElement('a'); link.download = `Arena_Trophy_${activeShareData.topic_title}.png`; link.href = dataUrl;
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a'); 
+        link.download = `Arena_Trophy_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`;
+        link.href = blobUrl;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       }
       setActiveShareData(null);
      } catch (e) { alert(t('msgGenerateImageError')); } 
@@ -1214,7 +1221,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             {selectedTopicId === null ? (
               <div className="arena-fluid-container">
                 
-                {/* 🎯 FELTŰNŐ FIGYELMEZTETŐ BANNER AZ AKTÍV FŐOLDAL TETEJÉN */}
+                {/* FELTŰNŐ FIGYELMEZTETŐ BANNER AZ AKTÍV FŐOLDAL TETEJÉN - CSAK NEVEZETT JÁTÉKOKRA */}
                 {unvotedTopicsCount > 0 && (
                   <div style={{
                     background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(249, 115, 22, 0.15))',
@@ -1234,7 +1241,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         ⚠️ Figyelem! Még nem szavaztál minden képre!
                       </h4>
                       <p style={{ margin: 0, color: 'var(--text-title)', fontSize: '0.88rem', lineHeight: '1.4' }}>
-                        {unvotedTopicsCount} aktív játékban van hiányzó szavazatod. Ha nem szavazol az összes képre, a saját képeid láthatósága és pontszáma csökken!
+                        {unvotedTopicsCount} olyan aktív játékban van hiányzó szavazatod, ahova már neveztél. Ha nem szavazol az összes képre, a saját képeid láthatósága és pontszáma csökken!
                       </p>
                     </div>
                   </div>
