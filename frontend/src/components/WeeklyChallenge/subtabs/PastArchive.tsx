@@ -102,8 +102,6 @@ export default function PastArchive({
     return () => { cancelled = true; };
   }, [activeShareData]);
 
-  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
-
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -115,40 +113,10 @@ export default function PastArchive({
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
   const isAdminUser = user?.email === ADMIN_EMAIL;
 
-  useEffect(() => {
-    const loadRealPhotoUsersAvatars = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/exclusive-users`, {
-          headers: getAuthHeaders()
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const avatarMap: Record<string, string> = {};
-          if (Array.isArray(data)) {
-            data.forEach((u: any) => {
-              if (u.name && u.avatar_url) avatarMap[u.name.toLowerCase().trim()] = u.avatar_url;
-              if (u.email && u.avatar_url) avatarMap[u.email.toLowerCase().trim()] = u.avatar_url;
-            });
-          }
-          setUserAvatars(avatarMap);
-        }
-      } catch (e) {
-        console.error("Nem sikerült szinkronizálni a photo_users profilképeket", e);
-      }
-    };
-    loadRealPhotoUsersAvatars();
-  }, [selectedPastTopicId]);
-
-  const getProfileAvatar = (name: string, email?: string) => {
-    if (name) {
-      const keyName = name.toLowerCase().trim();
-      if (userAvatars[keyName]) return userAvatars[keyName];
-    }
-    if (email) {
-      const keyEmail = email.toLowerCase().trim();
-      if (userAvatars[keyEmail]) return userAvatars[keyEmail];
-    }
-    if (user && user.email && (email === user.email || name === user.name)) {
+  // 🎯 LEOKTATOTT PROFILKÉP KINYERÉS ELEMZÉSE SZAJT BELSŐ ADATOKBÓL (ADMIN VÉGPONT-HÍVÁS NÉLKÜL)
+  const getProfileAvatar = (entry: any) => {
+    if (entry && entry.avatar_url) return entry.avatar_url;
+    if (user && user.email && (entry?.user_email === user.email || entry?.user_name === user.name)) {
       return user.avatar_url || user.picture || silhouetteAvatar;
     }
     return silhouetteAvatar;
@@ -250,7 +218,6 @@ export default function PastArchive({
     return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4); 
   }, [singlePhotosRankedList]);
 
-  // 🎯 MOBILRA IS FELKÉSZÍTETT, NATÍV MEGOSZTÓT ÉS BLOBOZÁST HASZNÁLÓ PLAKÁT-GENERÁLÓ MOTOR
   const handleGenerateAdminPoster = async () => {
     if (!topThreeWinners.length) return alert("Nincs elegendő dobogós adat a plakát elkészítéséhez!");
     setIsAdminGeneratingPoster(true);
@@ -305,13 +272,11 @@ export default function PastArchive({
           await toPng(node, { cacheBust: true, pixelRatio: 1 });
           const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0, width: 1200, height: 1200, pixelRatio: 1 });
           
-          // 🎯 ATOMSTABIL MOBIL KINYERÉS: Data URL konvertálása memóriabeli Blob-bá
           const res = await fetch(dataUrl);
           const blob = await res.blob();
           const fileName = `Arena_Results_${(currentTopicObj?.title || 'Challenge').replace(/\s+/g, '_')}_2026.png`;
           const file = new File([blob], fileName, { type: 'image/png' });
 
-          // 📲 Mobil esetén meghívjuk a natív megosztó menüt (Save Image / Megosztás)
           if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
@@ -319,7 +284,6 @@ export default function PastArchive({
               text: `Hivatalos eredmények: ${currentTopicObj?.title}`
             });
           } else {
-            // Asztali böngészőben közvetlen letöltést hajtunk végre
             const blobUrl = URL.createObjectURL(blob);
             const link = document.createElement('a'); 
             link.download = fileName;
@@ -494,7 +458,7 @@ export default function PastArchive({
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left' }}>
                           <img 
-                            src={getProfileAvatar(topThreeWinners[0].user_name, topThreeWinners[0].user_email || topThreeWinners[0].email)} 
+                            src={getProfileAvatar(topThreeWinners[0])} 
                             alt="" 
                             style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
@@ -550,7 +514,7 @@ export default function PastArchive({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', alignItems: 'start' }}>
                 <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '6px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid var(--border-main)' }}>
                   <img 
-                    src={getProfileAvatar(currentTopicObj?.master_name || '', currentTopicObj?.master_email || '')} 
+                    src={currentTopicObj?.master_avatar_url || silhouetteAvatar} 
                     alt="Master" 
                     style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
