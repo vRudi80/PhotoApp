@@ -321,6 +321,32 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
       res.status(500).json({ error: 'Szerver hiba' });
     }
   });
+  // 🎯 SAJÁT TÁRHELY STATISZTIKA (MINDEN BEJELENTKEZETT USERNEK ELÉRHETŐ)
+app.get('/api/my-storage-stats', requireAuth, async (req, res) => {
+  try {
+    const userEmail = req.user.email;
+    const query = `
+      SELECT COALESCE(COUNT(*), 0) as total_photos, COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+      FROM (
+        SELECT user_email, file_size FROM photo_portfolio
+        UNION ALL
+        SELECT user_email, file_size FROM photo_entries
+        UNION ALL
+        SELECT user_email, file_size FROM photo_homework_entries
+      ) as all_photos
+      WHERE user_email = ?
+    `;
+    const [rows] = await pool.query(query, [userEmail]);
+    res.json({
+      user_email: userEmail,
+      total_photos: Number(rows[0]?.total_photos || 0),
+      total_bytes: Number(rows[0]?.total_bytes || 0)
+    });
+  } catch (err) {
+    console.error('Hiba a saját tárhely lekérésekor:', err);
+    res.status(500).json({ error: 'Szerver hiba' });
+  }
+});
 
   // ====================================================================
   // 6. VALÓDI AI KÉPELEMZÉS (AZ EREDETI LOGIKÁD SZERINT, TÖMÖRÍTETT LOPOTT KISKÉPPEL)
