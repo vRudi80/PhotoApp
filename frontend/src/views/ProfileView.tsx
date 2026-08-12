@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BACKEND_URL } from '../utils/constants';
+import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 
-// 🎯 Nyelvi kontextus aktiválása
+// Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
 
 // Téma környezet betöltése
 import { useTheme } from '../context/ThemeContext';
 
-// 🎯 ÚJ: A Pontbolt és Tárca felületi komponensének beemelése
+// A Pontbolt és Tárca felületi komponensének beemelése
 import PointsWalletAndStore from './PointsWalletAndStore';
 
 interface ProfileViewProps {
@@ -33,7 +33,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [pendingMembers, setPendingMembers] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // 🎯 PROFIL ÁLLAPOTOK
+  // PROFIL ÁLLAPOTOK
   const [nameInput, setNameInput] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [address, setAddress] = useState<string>('');
@@ -42,7 +42,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [membershipEnd, setMembershipEnd] = useState<string>('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // 📸 PROFILKÉP ÁLLAPOTOK
+  // PROFILKÉP ÁLLAPOTOK
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,11 +57,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
   const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
-  // 🔄 Profiladatok és a naplózott tagsági dátumok szinkronizálása
+  // Profiladatok és a naplózott tagsági dátumok szinkronizálása
   const loadFreshProfile = async () => {
     if (!user?.email) return;
     try {
-      // 1. Felhasználói alapadatok lekérése hitelesítve
       const res = await fetch(`${BACKEND_URL}/api/users/${user.email}`, {
         headers: getAuthHeaders()
       });
@@ -85,7 +84,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         setUser(freshData);
       }
       
-      // 2. 🎯 JAVÍTVA: A tagsági napló lekérdezése a helyes /api/clubs végpontra irányítva
       const resDates = await fetch(`${BACKEND_URL}/api/clubs/active-membership?userEmail=${user.email}`, {
         headers: getAuthHeaders()
       });
@@ -115,30 +113,28 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       .catch(console.error);
   }, []);
 
+  // 🎯 MINDEN FELHASZNÁLÓNAK BIZTONSÁGOSAN LEKÉRJÜK A SAJÁT TÁRHELYÉT
   useEffect(() => {
     if (!user?.email) return;
     
     const fetchUserStats = async () => {
       setIsLoadingStats(true);
       try {
-        const resStorage = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`, {
+        const resStorage = await fetch(`${BACKEND_URL}/api/my-storage-stats`, {
           headers: getAuthHeaders()
         });
         if (resStorage.ok) {
-          const allStats = await resStorage.json();
-          const myStats = allStats.find((s: any) => s.user_email === user.email);
-          if (myStats) {
-            setUserStorage({
-              count: myStats.total_photos || 0,
-              bytes: Number(myStats.total_bytes) || 0
-            });
-          }
+          const myStats = await resStorage.json();
+          setUserStorage({
+            count: Number(myStats.total_photos) || 0,
+            bytes: Number(myStats.total_bytes) || 0
+          });
         }
         if (user?.ai_usage_count !== undefined) {
           setAiUsageCount(user.ai_usage_count);
         }
       } catch (e) {
-        console.error(e);
+        console.error("Tárhely-statisztika lekérdezési hiba:", e);
       } finally {
         setIsLoadingStats(false);
       }
@@ -444,7 +440,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       </div>
 
-      {/* 🪙 ÚJ: TRANZAKCIÓS TÁRCA ÉS PONTBOLT INTEGRÁCIÓ */}
+      {/* TRANZAKCIÓS TÁRCA ÉS PONTBOLT INTEGRÁCIÓ */}
       <PointsWalletAndStore 
         user={user} 
         currentDbUser={{ ...user, points_balance: pointsBalance }} 
@@ -507,7 +503,6 @@ function UserMembershipAndPaymentsBlock({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     if (!userEmail) return;
     
-    // 🎯 JAVÍTVA: Az eltévedt végpont áthelyezve a helyes /api/clubs/my-payments útvonalra
     fetch(`${BACKEND_URL}/api/clubs/my-payments?userEmail=${userEmail}`, {
       headers: getAuthHeaders()
     })
