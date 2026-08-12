@@ -123,10 +123,10 @@ if (typeof window !== 'undefined') {
         const response = await originalFetch(input, init);
         
         // 🎯 TOKEN LEJÁRAT / ILLETÉKTELEN HOZZÁFÉRÉS ELKAPÁSA
-        if (response.status === 401 || response.status === 403) {
-          handleUnauthorizedLogout();
-          return response;
-        }
+       if (response.status === 401) {
+        handleUnauthorizedLogout();
+        return response;
+      }
 
         if (response.status >= 500) {
           if (retries > 1) {
