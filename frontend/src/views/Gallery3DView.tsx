@@ -78,7 +78,7 @@ const GALLERY_THEMES: Record<string, {
 };
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
-  const token = localStorage.getItem('photoAppToken') || localStorage.getItem('token') || localStorage.getItem('authToken');
+  const token = localStorage.getItem('photoAppToken') || localStorage.getItem('token');
   return {
     ...(token ? { 'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}` } : {}),
     ...extraHeaders
@@ -90,27 +90,21 @@ const resolvePhotoUrl = (photo: any) => {
   return getImageUrl(photo.drive_file_id, photo.file_url) || photo.file_url || '';
 };
 
-// 🎯 GOLYÓÁLLÓ EGYEDI KÉP-AZONOSÍTÓ GENERÁTOR
 const getPhotoKey = (p: any) => {
   if (!p) return '';
-
-  // 1. Elsődlegesen Google Drive ID ellenőrzése
   let driveId = p.drive_file_id || p.driveFileId;
   if (driveId && String(driveId).trim().length > 5) {
     return `drive_${String(driveId).trim()}`;
   }
 
-  // 2. Másodlagosan URL kiértékelés (Google Drive kód kinyerése URL-ből ha van)
   const rawUrl = p.file_url || p.fileUrl || p.url || '';
   if (rawUrl && String(rawUrl).trim().length > 0) {
     const urlStr = String(rawUrl).trim();
-    
     const driveMatch = urlStr.match(/\/d\/([a-zA-Z0-9_-]{10,})/) || urlStr.match(/id=([a-zA-Z0-9_-]{10,})/);
     if (driveMatch && driveMatch[1]) {
       return `drive_${driveMatch[1]}`;
     }
 
-    // Cloudinary és egyéb webes URL-ek tisztítása (Verziószám és protokoll levágása)
     let clean = urlStr
       .replace(/^https?:\/\//i, '')
       .split('?')[0]
@@ -123,9 +117,7 @@ const getPhotoKey = (p: any) => {
     }
   }
 
-  // 3. Harmadlagosan adatbázis rekord azonosító
   if (p.id) return `id_${p.id}`;
-
   return '';
 };
 
@@ -387,17 +379,13 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // KÖZVETLEN FOTÓ FELTÖLTÉS A PORTFÓLIÓBA
   const [inlineUploadTitle, setInlineUploadTitle] = useState('');
   const [inlineUploadFile, setInlineUploadFile] = useState<File | null>(null);
   const [inlineUploadPreview, setInlineUploadPreview] = useState<string | null>(null);
   const [isInlineUploading, setIsInlineUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // KERESŐ A PORTFÓLIÓ FOTÓKHOZ
   const [portfolioSearchTerm, setPortfolioSearchTerm] = useState('');
-
-  // SZŰRŐ CSAK A KIJELÖLT KÉPEKRE A SZERKESZTŐBEN
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
 
   const [showInteractionsModal, setShowInteractionsModal] = useState(false);
@@ -414,6 +402,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
 
   const userEmail = user?.email;
+  const isPremiumUser = !!(user?.is_premium || user?.isPremium);
 
   const preloadGalleryPhotos = async (photos: any[]) => {
     const safePhotos = Array.isArray(photos) ? photos : [];
@@ -492,38 +481,52 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   }, [userEmail]);
 
+  // 🎯 CSAK PRÉMIUM TAGOKNÁL KÉRJÜK LE A PORTFÓLIÓT, HOGY SIMA USEREKNÉL NE VÁLTSÓN KI 403-AT!
   const loadData = async () => {
     setLoading(true);
     try {
-      const [listRes, portfolioRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/3d-galleries`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(userEmail || '')}`, { headers: getAuthHeaders() })
-      ]);
+      const promises: Promise<Response>[] = [
+        fetch(`${BACKEND_URL}/api/3d-galleries`, { headers: getAuthHeaders() })
+      ];
 
-      let loadedGalleries: any[] = [];
-      if (listRes.ok) {
+      if (userEmail && isPremiumUser) {
+        promises.push(
+          fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(userEmail)}`, { headers: getAuthHeaders() })
+        );
+      }
+
+      const results = await Promise.all(promises);
+      const listRes = results[0];
+      const portfolioRes = results[1];
+
+      if (listRes && listRes.ok) {
         const data = await listRes.json();
-        loadedGalleries = Array.isArray(data) ? data : [];
-        setAllGalleries(loadedGalleries);
+        setAllGalleries(Array.isArray(data) ? data : []);
       } else {
         setAllGalleries([]);
       }
 
-      if (portfolioRes.ok) {
+      if (portfolioRes && portfolioRes.ok) {
         const pData = await portfolioRes.json();
         setMyPortfolioPhotos(Array.isArray(pData) ? pData : []);
+      } else {
+        setMyPortfolioPhotos([]);
       }
 
       const urlParams = new URLSearchParams(window.location.search);
       const targetToken = urlParams.get('token') || urlParams.get('id');
-      if (targetToken && loadedGalleries.length > 0) {
-        const targetGal = loadedGalleries.find((g: any) => String(g.share_token) === String(targetToken) || String(g.id) === String(targetToken));
-        if (targetGal && !targetGal.is_expired) handleOpen3D(targetGal);
+      if (targetToken && listRes && listRes.ok) {
+        const loadedGalleries = await listRes.clone().json().catch(() => []);
+        if (Array.isArray(loadedGalleries) && loadedGalleries.length > 0) {
+          const targetGal = loadedGalleries.find((g: any) => String(g.share_token) === String(targetToken) || String(g.id) === String(targetToken));
+          if (targetGal && !targetGal.is_expired) handleOpen3D(targetGal);
+        }
       }
 
     } catch (e) {
       console.error(e);
       setAllGalleries([]);
+      setMyPortfolioPhotos([]);
     } finally {
       setLoading(false);
     }
@@ -721,7 +724,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     setSelectedPhotos(prev => prev.map(p => getPhotoKey(p) === photoKey ? { ...p, title: newTitle } : p));
   };
 
-  // KÖZVETLEN FELTÖLTÉS A PORTFÓLIÓBA A TÁRLATSZERKESZTŐBŐL
   const handleInlineUploadToPortfolio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inlineUploadFile || !inlineUploadTitle.trim()) {
@@ -745,7 +747,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
       if (res.ok) {
         const uploadedData = await res.json();
         
-        // Portfólió frissítése a háttérben
         const portfolioRes = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() });
         if (portfolioRes.ok) {
           const freshPortfolio = await portfolioRes.json();
@@ -815,7 +816,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  // 🎯 GOLYÓÁLLÓ KLIENSOLDALI SZŰRÉS (Összefésüli a portfóliót és a kiválasztott képeket)
   const filteredPortfolioPhotos = useMemo(() => {
     const combinedMap = new Map<string, any>();
 
@@ -913,7 +913,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
               </button>
             )}
 
-            {user?.is_premium || user?.isPremium ? (
+            {isPremiumUser ? (
               viewMode === 'DIRECTORY' && (
                 <button onClick={handleStartNewGallery} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <PlusCircle size={16} /> Új 3D Tárlat Létrehozása
@@ -1435,7 +1435,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
               </div>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* SZŰRŐ GOMB A KIVÁLASZTOTT KÉPEKRE */}
                 <button 
                   type="button"
                   onClick={() => setShowSelectedOnly(prev => !prev)}
@@ -1457,7 +1456,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
                   <Filter size={15} /> {showSelectedOnly ? 'Összes fotó mutatása' : `Kiválasztottak (${selectedPhotos.length})`}
                 </button>
 
-                {/* KERESŐ SÁV A FOTÓKHOZ */}
                 <div style={{ position: 'relative', minWidth: '240px' }}>
                   <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                   <input 
