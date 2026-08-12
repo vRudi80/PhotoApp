@@ -1415,6 +1415,20 @@ app.get('/api/admin/fix-active-master-votes', async (req, res) => {
       res.status(500).json({ error: err.message });
     }
   });
+  // 🎯 BÁRMELY BEJELENTKEZETT FELHASZNÁLÓ ÁLTAL ELÉRHETŐ PROFILKÉP MAPPER (403-MENTES)
+app.get('/api/weekly/users-avatars', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT email, name, avatar_url 
+      FROM photo_users 
+      WHERE avatar_url IS NOT NULL AND TRIM(avatar_url) != ''
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Hiba a profilképek lekérésekor:", err.message);
+    res.status(500).json({ error: 'Szerveroldali hiba a profilképek betöltésekor.' });
+  }
+});
   app.post('/api/weekly/report-off-topic', requireAuth, async (req, res) => {
     const { entryId, userEmail } = req.body;
     if (req.user.email !== userEmail) return res.status(403).json({ error: 'Munkamenet hiba!' });
