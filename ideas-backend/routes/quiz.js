@@ -1,53 +1,17 @@
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
+
 const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // 🎯 KÖZPONTI BANKMOTOR BEÉPÍTÉSE
 const PointsService = require('../PointsService'); 
-
-// 🎯 BIZTONSÁGI TARTALÉK EMAIL
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
-
-// ====================================================================
-// 🔒 HITELESÍTÉSI MIDDLEWARE (weekly.js alapú)
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Token hiányzik.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba a kvíz modulban:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
 
 // ====================================================================
 // 🎮 ANTI-CHEAT MEMÓRIA TÁROLÓ
@@ -84,14 +48,12 @@ module.exports = function(app, pool, upload, genAI) {
       const prevYear = d.getFullYear();
       const prevMonth = d.getMonth() + 1;
 
-      // Megnézzük, lefutott-e már az előző naptári hónap bírálata
       const [check] = await pool.query(
         'SELECT winner_email FROM quiz_monthly_processed WHERE year = ? AND month = ?', 
         [prevYear, prevMonth]
       );
       if (check.length > 0) return;
 
-      // Kikeressük az előző hónap abszolút első helyezettjét a pontok és időeredmény alapján
       const [winnerRows] = await pool.query(`
         SELECT a.user_email, SUM(a.score) as total_score, AVG(a.duration_seconds) as avg_duration
         FROM quiz_attempts a
@@ -108,7 +70,6 @@ module.exports = function(app, pool, upload, genAI) {
 
       const winnerEmail = winnerRows[0].user_email;
 
-      // Atomian frissítünk: ha jövőbeli a lejárat, tolja ki 30 nappal, különben a mostani időhöz adjon 30 napot. Védi a Level 2-t!
       await pool.query(`
         UPDATE photo_users 
         SET 
@@ -155,7 +116,6 @@ module.exports = function(app, pool, upload, genAI) {
         return res.json({ alreadyPlayed: true, questions: [] });
       }
 
-      // 🎯 ANTI-CHEAT LOCK: Aktiváljuk a szerveroldali védelmi zárat
       activeQuizzes[req.user.email] = Date.now();
 
       const [questions] = await pool.query(
@@ -178,7 +138,6 @@ module.exports = function(app, pool, upload, genAI) {
       return res.status(403).json({ error: 'Munkamenet biztonsági eltérés!' });
     }
 
-    // 🎯 ANTI-CHEAT UNLOCK: Sikeres beküldéskor azonnal feloldjuk a zárat
     if (activeQuizzes[req.user.email]) {
       delete activeQuizzes[req.user.email];
     }
@@ -419,7 +378,6 @@ module.exports = function(app, pool, upload, genAI) {
   // 📋 MY-HISTORY + KATÉGÓRIÁNKÉNTI ÉS ÖSSZESÍTETT SZÁMLÁLÓK
   // ====================================================================
   app.get('/api/quiz/my-history', requireAuth, async (req, res) => {
-    // 🎯 AZ ÚJ INDÍTÓ GOMB: On-Demand havi lezárás ellenőrzése
     await processFinishedQuizMonths(pool);
 
     try {
@@ -463,7 +421,6 @@ module.exports = function(app, pool, upload, genAI) {
   // 🏆 TISZTA TALÁLATI DARABSZÁM ÉS IDŐALAPÚ RANGLISTA
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
-    // 🎯 AZ ÚJ INDÍTÓ GOMB: On-Demand havi lezárás ellenőrzése
     await processFinishedQuizMonths(pool);
 
     const { period, year, month } = req.query;
@@ -522,7 +479,6 @@ module.exports = function(app, pool, upload, genAI) {
   // ====================================================================
   app.get('/api/premium/photo-history', requireAuth, async (req, res) => {
     try {
-      // 🎯 ANTI-CHEAT CHECK: Megnézzük, hogy van-e aktív, folyamatban lévő kvízköre
       const quizStartTime = activeQuizzes[req.user.email];
       if (quizStartTime) {
         const elapsedSeconds = (Date.now() - quizStartTime) / 1000;
@@ -535,7 +491,6 @@ module.exports = function(app, pool, upload, genAI) {
         }
       }
 
-      // Hozzáférés ellenőrzés
       const [userRows] = await pool.query(
         'SELECT is_premium, premium_until FROM photo_users WHERE email = ?', 
         [req.user.email]
