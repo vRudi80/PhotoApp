@@ -1,59 +1,13 @@
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
+
 const fs = require('fs');
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PointsService = require('../PointsService');
 
 // A te valódi admin e-mailed biztonsági tartaléknak
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
-
-  // ====================================================================
-  // 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE + TILTÓLISTA ELLENŐRZÉS
-  // ====================================================================
-  async function requireAuth(req, res, next) {
-    if (req.method === 'OPTIONS') {
-      return next();
-    }
-
-    try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-      }
-
-      const token = authHeader.split(' ')[1];
-      
-      // Google OAuth IdToken hitelesítése
-      const ticket = await client.verifyIdToken({
-        idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-      
-      const payload = ticket.getPayload();
-      if (!payload || !payload.email) {
-        return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-      }
-
-      // Ellenőrizzük a feketelistát az adatbázisban
-      const [banRows] = await pool.query('SELECT 1 FROM photo_banned_emails WHERE email = ?', [payload.email]);
-      if (banRows.length > 0) {
-        return res.status(403).json({ error: 'Ez a fiók biztonsági okokból véglegesen ki lett tiltva!' });
-      }
-
-      // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
-      req.user = {
-        email: payload.email,
-        name: payload.name,
-        isAdmin: payload.email === ADMIN_EMAIL
-      };
-
-      next();
-    } catch (error) {
-      console.error("🔒 Biztonsági őr hiba a clubs modulban:", error.message);
-      return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-    }
-  }
 
   // Helper funkció a klubvezetői/helyettesi jogosultság ellenőrzésére
   async function isClubManagement(email, clubId) {
@@ -212,7 +166,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 📰 HÍREK SZEKCIÓ
   // ====================================================================
-  // 🎯 JAVÍTVA: A hibás rendszer-ellenőrző snippet teljesen ki lett pucolva!
   app.get('/api/news/public', requireAuth, async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -264,9 +217,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a hír törlésekor' }); }
   });
 
- app.post('/api/news/:id/read', requireAuth, async (req, res) => {
+  app.post('/api/news/:id/read', requireAuth, async (req, res) => {
     try {
-      // 🎯 MODOSÍTVA: Minden megnyitáskor felülírjuk az időbélyeget a legfrissebbre, így tudjuk az utolsó olvasás idejét!
       await pool.query(`
         INSERT INTO photo_club_news_reads (news_id, user_email, read_at)
         VALUES (?, ?, CURRENT_TIMESTAMP())
@@ -287,12 +239,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-// ====================================================================
+  // ====================================================================
   // 💬 HOZZÁSZÓLÁSOK LEKÉRÉSE PROFILKÉP (AVATAR) TÁMOGATÁSSAL
   // ====================================================================
   app.get('/api/news/:id/comments', requireAuth, async (req, res) => {
     try {
-      // 🎯 JAVÍTVA: Összekötjük a kommenteket a photo_users táblával, így a frontend azonnal látni fogja a képeket!
       const [rows] = await pool.query(`
         SELECT c.*, u.avatar_url 
         FROM photo_club_news_comments c
@@ -424,58 +375,58 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 🎯 KLUB PÉNZÜGYEK ÉS TAGNYILVÁNTARTÁS VÉDELME
   // ====================================================================
   app.get('/api/my-club/admin-records', requireAuth, async (req, res) => {
-  const { clubId } = req.query;
-  if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
+    const { clubId } = req.query;
+    if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
 
-  if (!await isClubManagement(req.user.email, clubId)) {
-    return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a klubvezetés láthatja a belső nyilvántartást.' });
-  }
+    if (!await isClubManagement(req.user.email, clubId)) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a klubvezetés láthatja a belső nyilvántartást.' });
+    }
 
-  try {
-    const [allTimeMembers] = await pool.query(`
-      SELECT 
-        u.name, 
-        u.email, 
-        u.club_role,
-        u.is_master,
-        u.shipping_address,
-        1 as is_currently_here,
-        COALESCE(DATE_FORMAT((SELECT joined_date FROM photo_club_memberships WHERE user_email = u.email AND club_id = u.club_id AND status = 'active' LIMIT 1), '%Y-%m-%d'), 'Ismeretlen') as membership_start,
-        NULL as membership_end
-      FROM photo_users u
-      WHERE u.club_id = ? AND u.club_role != 'pending'
+    try {
+      const [allTimeMembers] = await pool.query(`
+        SELECT 
+          u.name, 
+          u.email, 
+          u.club_role,
+          u.is_master,
+          u.shipping_address,
+          1 as is_currently_here,
+          COALESCE(DATE_FORMAT((SELECT joined_date FROM photo_club_memberships WHERE user_email = u.email AND club_id = u.club_id AND status = 'active' LIMIT 1), '%Y-%m-%d'), 'Ismeretlen') as membership_start,
+          NULL as membership_end
+        FROM photo_users u
+        WHERE u.club_id = ? AND u.club_role != 'pending'
 
-      UNION ALL
+        UNION ALL
 
-      SELECT 
-        u.name, 
-        u.email, 
-        m.club_role,
-        u.is_master,
-        u.shipping_address,
-        0 as is_currently_here,
-        DATE_FORMAT(m.joined_date, '%Y-%m-%d') as membership_start,
-        DATE_FORMAT(m.left_date, '%Y-%m-%d') as membership_end
-      FROM photo_club_memberships m
-      JOIN photo_users u ON m.user_email = u.email
-      WHERE m.club_id = ? AND m.status = 'left' AND (u.club_id IS NULL OR u.club_id != ?)
-      
-      ORDER BY is_currently_here DESC, name ASC
-    `, [clubId, clubId, clubId]);
+        SELECT 
+          u.name, 
+          u.email, 
+          m.club_role,
+          u.is_master,
+          u.shipping_address,
+          0 as is_currently_here,
+          DATE_FORMAT(m.joined_date, '%Y-%m-%d') as membership_start,
+          DATE_FORMAT(m.left_date, '%Y-%m-%d') as membership_end
+        FROM photo_club_memberships m
+        JOIN photo_users u ON m.user_email = u.email
+        WHERE m.club_id = ? AND m.status = 'left' AND (u.club_id IS NULL OR u.club_id != ?)
+        
+        ORDER BY is_currently_here DESC, name ASC
+      `, [clubId, clubId, clubId]);
 
-    const [payments] = await pool.query(`
-      SELECT id, user_email, fiscal_year, fee_amount, paid_amount, DATE_FORMAT(payment_date, '%Y-%m-%d') as payment_date 
-      FROM photo_club_payments 
-      WHERE club_id = ?
-      ORDER BY fiscal_year DESC, payment_date DESC
-    `, [clubId]);
+      const [payments] = await pool.query(`
+        SELECT id, user_email, fiscal_year, fee_amount, paid_amount, DATE_FORMAT(payment_date, '%Y-%m-%d') as payment_date 
+        FROM photo_club_payments 
+        WHERE club_id = ?
+        ORDER BY fiscal_year DESC, payment_date DESC
+      `, [clubId]);
 
-    res.json({ members: allTimeMembers, payments });
-  } catch (err) {
-    console.error("❌ Hiba az adminisztratív rekordok lekérésekor:", err.message);
-    res.status(500).json({ error: 'Szerveroldali hiba történt.' });
-  }
-});
+      res.json({ members: allTimeMembers, payments });
+    } catch (err) {
+      console.error("❌ Hiba az adminisztratív rekordok lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt.' });
+    }
+  });
 
   app.post('/api/my-club/member/log-payment', requireAuth, async (req, res) => {
     const { clubId, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate } = req.body;
@@ -502,7 +453,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  // 🎯 ÚJ: RENDESZETT INTERFÉSZ A HISTÓRIKUS TAGDÍJAKHOZ (ÁTHELYEZVE /api/clubs/ my-payments ALÁ)
   app.get('/api/clubs/my-payments', requireAuth, async (req, res) => {
     const { userEmail } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
@@ -561,11 +511,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Adatbázis hiba történt a mentés során: ' + err.message });
     }
   });
+
   // ====================================================================
   // 🏛️ FÓRUM KATEGÓRIÁK KEZELÉSE
   // ====================================================================
-  
-// 🎯 FRISSÍTVE: Összetett számláló, ami összesíti a csoporton belüli olvasatlan kommenteket is
   app.get('/api/forum/categories', requireAuth, async (req, res) => {
     const { mode, clubId } = req.query;
     const userEmail = req.user.email;
@@ -598,7 +547,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [rows] = await pool.query(query, params); res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
-// 🎯 FRISSÍTVE: Minden poszt mellé kiszámoljuk a kifejezetten azóta érkezett kommentek számát, amióta a user utoljára megnyitotta a szálat
+
   app.get('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
     const { categoryId } = req.params; const { mode, clubId } = req.query; const userEmail = req.user.email;
     try {
@@ -634,8 +583,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 2. Új kategória létrehozása (KIZÁRÓLAG GLOBÁLIS ADMINNAK)
-    // 1. Új kategória létrehozása leírással (Admin)
   app.post('/api/forum/categories', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak a főadminisztrátor hozhat létre új fórumcsoportot!' });
     const { name, description } = req.body;
@@ -647,7 +594,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 2. Kategória szerkesztése leírással (Admin)
   app.put('/api/forum/categories/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak a főadminisztrátor szerkesztheti a fórumcsoportokat!' });
     const { name, description } = req.body;
@@ -659,18 +605,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-
   // ====================================================================
-  // 📝 FÓRUM BEJEGYZÉSEK (POSTS) SZŰRT LEKÉRÉSE ÉS MENTÉSE
-  // ====================================================================
-
- 
-
-  // 5. Új téma/beszélgetés indítása
-    // 1. Új téma/beszélgetés indítása KÉPFELTÖLTÉSSEL
-    // 🎯 VÉGLEGES FIX: Fórumposzt-mentő végpont natív fájltörléssel
-    // 🎯 JAVÍTVA: Intelligens klub-azonosító kezelés a null értékek kivédésére
-// ====================================================================
   // 📝 ÚJ TÉMA INDÍTÁSA INTEGRÁLT PONTRENDSZERREL
   // ====================================================================
   app.post('/api/forum/categories/:categoryId/posts', upload.single('photo'), requireAuth, async (req, res) => {
@@ -678,7 +613,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const { clubId, title, content, isPublic } = req.body;
     const file = req.file;
 
-    // Vezetőségi ellenőrzés az 1-es kategóriához
     if (Number(categoryId) === 1 && !req.user.isAdmin) {
       const [rows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [req.user.email, clubId]);
       const userRole = rows[0]?.club_role;
@@ -705,7 +639,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         cleanupTempFile(file);
       }
 
-      // 🎯 BIZTONSÁGI FIX: Ha a beküldött clubId üres vagy "null" string, megpróbáljuk a bejelentkezett user saját klubját használni, különben 0-át vagy NULL-t adunk át
       let finalClubId = null;
       if (clubId && clubId !== 'null' && clubId !== 'undefined' && String(clubId).trim() !== '') {
         finalClubId = Number(clubId);
@@ -713,26 +646,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         finalClubId = Number(req.user.club_id);
       }
 
-      // 🎯 MODOSÍTVA: Kimentjük a mentés eredményét a [result] tömbbe
       const [result] = await pool.query(
         'INSERT INTO photo_club_news (category_id, club_id, author_email, author_name, title, content, is_public, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [categoryId, finalClubId, req.user.email, req.user.name, title, content, isPublic === 'true' || isPublic === true ? 1 : 0, fileUrl, driveFileId]
       );
 
-      // 🪙 JUTALOMPONT: Ha a mentés sikeres volt, azonnal kiosztunk +10 bónuszpontot a szerzőnek
       if (result && result.insertId) {
         try {
           await PointsService.handleTransaction(
             pool, 
             req.user.email, 
-            10, // +10 pont jár érte
+            10, 
             'forum_post', 
-            result.insertId, // Összekötjük a pontot a poszt ID-jával
+            result.insertId, 
             `📝 Új témát indítottál a fórumban: "${title.trim()}"`,
             `Started a new topic in the forum: "${title.trim()}"`
           );
         } catch (pe) {
-          // Ha a pontozás valamiért hibára futna, a konzolra kiírjuk, de a posztot nem engedjük elveszni!
           console.error("❌ Fórum poszt pontozási hiba:", pe.message);
         }
       }
@@ -745,14 +675,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-
-  // 🎯 ÚJ: Fórumbejegyzés/Téma utólagos szerkesztése (Csak a szerző vagy Admin)
   app.put('/api/forum/posts/:id', requireAuth, async (req, res) => {
     const { title, content, isPublic } = req.body;
     const postId = req.params.id;
 
     try {
-      // 🔒 Első lépésként leellenőrizzük, létezik-e a poszt, és ki írta
       const [rows] = await pool.query('SELECT author_email FROM photo_club_news WHERE id = ?', [postId]);
       if (rows.length === 0) {
         return res.status(404).json({ error: 'A keresett beszélgetés nem található!' });
@@ -763,7 +690,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.status(403).json({ error: 'Nincs jogosultságod a bejegyzés módosításához!' });
       }
 
-      // Frissítjük a címet, tartalmat és a láthatóságot
       await pool.query(
         'UPDATE photo_club_news SET title = ?, content = ?, is_public = ? WHERE id = ?',
         [title, content, isPublic ? 1 : 0, postId]
@@ -776,7 +702,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-// ====================================================================
+  // ====================================================================
   // 💬 ÚJ HOZZÁSZÓLÁS KÜLDÉSE INTEGRÁLT PONTRENDSZERREL
   // ====================================================================
   app.post('/api/news/:id/comments', upload.single('photo'), requireAuth, async (req, res) => {
@@ -801,30 +727,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         cleanupTempFile(file);
       }
 
-      // 🎯 MODOSÍTVA: Kimentjük a komment mentésének eredményét a [result] változóba
       const [result] = await pool.query(
         'INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?)', 
         [newsId, req.user.email, req.user.name, commentText || '', fileUrl, driveFileId]
       );
 
-      // 🪙 JUTALOMPONT: Ha a komment bekerült az adatbázisba, kap +5 pontot a felhasználó
       if (result && result.insertId) {
         try {
-          // Lekérjük a főbejegyzés címét, hogy a pontnaplóban szépen jelenjen meg a kontextus
           const [postRows] = await pool.query('SELECT title FROM photo_club_news WHERE id = ?', [newsId]);
           const postTitle = postRows[0]?.title || 'Fórum beszélgetés';
           
           await PointsService.handleTransaction(
             pool, 
             req.user.email, 
-            5, // +5 pont jár érte
+            5, 
             'forum_comment', 
-            result.insertId, // Összekötjük a tranzakciót a komment egyedi ID-jával
+            result.insertId, 
             `💬 Hozzászóltál a(z) "${postTitle.trim()}" témához`,
             `Commented on topic: "${postTitle.trim()}"`
           );
         } catch (pe) {
-          // Ha a pontozó modul hibázna, naplózzuk, de a kommentet nem bántjuk
           console.error("❌ Fórum komment pontozási hiba:", pe.message);
         }
       }
@@ -836,15 +758,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
- // ====================================================================
-  // ❤️ ATOMI FÓRUM POSZT LÁJKOLÁS JUTALOMPONT RENDSZERREL (DEADLOCK-PROOF)
+  // ====================================================================
+  // ❤️ ATOMI FÓRUM POSZT LÁJKOLÁS JUTALOMPONT RENDSZERREL
   // ====================================================================
   app.post('/api/forum/posts/:id/like', requireAuth, async (req, res) => {
     const postId = req.params.id;
     const userEmail = req.user.email;
     
     try {
-      // 1. Ellenőrizzük a poszt létezését és a szerzőt
       const [postRows] = await pool.query('SELECT author_email, title FROM photo_club_news WHERE id = ?', [postId]);
       if (postRows.length === 0) {
         return res.status(404).json({ error: 'A beszélgetés nem található!' });
@@ -852,20 +773,16 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const authorEmail = postRows[0].author_email;
       const postTitle = postRows[0].title;
 
-      // 2. Megnézzük, létezik-e már a lájk rekord
       const [existing] = await pool.query('SELECT id FROM photo_club_news_likes WHERE news_id = ? AND user_email = ?', [postId, userEmail]);
       
       if (existing.length > 0) {
-        // --- UNLIKE FOLYAMAT ---
         await pool.query('DELETE FROM photo_club_news_likes WHERE news_id = ? AND user_email = ?', [postId, userEmail]);
         
-        // Csökkentjük a számlálót (ha hibára futna mert nincs oszlop, menet közben létrehozzuk)
         await pool.query('UPDATE photo_club_news SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [postId]).catch(async () => {
           await pool.query('ALTER TABLE photo_club_news ADD COLUMN likes_count INT DEFAULT 0').catch(()=>{});
           await pool.query('UPDATE photo_club_news SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [postId]);
         });
 
-        // Pontlevonás korrekció (kivéve ha saját magát lájkolta)
         if (authorEmail && authorEmail !== userEmail) {
           await PointsService.handleTransaction(
             pool, authorEmail, -1, 'forum_like_revoked', postId,
@@ -876,16 +793,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         
         return res.json({ success: true, liked: false });
       } else {
-        // --- LIKE FOLYAMAT ---
         await pool.query('INSERT INTO photo_club_news_likes (news_id, user_email) VALUES (?, ?)', [postId, userEmail]);
         
-        // Növeljük a számlálót (ha hibára futna mert nincs oszlop, menet közben létrehozzuk)
         await pool.query('UPDATE photo_club_news SET likes_count = likes_count + 1 WHERE id = ?', [postId]).catch(async () => {
           await pool.query('ALTER TABLE photo_club_news ADD COLUMN likes_count INT DEFAULT 0').catch(()=>{});
           await pool.query('UPDATE photo_club_news SET likes_count = likes_count + 1 WHERE id = ?', [postId]);
         });
 
-        // Pontosztás a szerzőnek (kivéve ha saját magát lájkolja)
         if (authorEmail && authorEmail !== userEmail) {
           await PointsService.handleTransaction(
             pool, authorEmail, 1, 'forum_like_received', postId,
@@ -913,44 +827,39 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
   
   app.get('/api/dashboard-alerts', requireAuth, async (req, res) => {
-  try {
-    const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [req.user.email]);
-    let clubId = users.length > 0 ? users[0].club_id : null;
+    try {
+      const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [req.user.email]);
+      let clubId = users.length > 0 ? users[0].club_id : null;
 
-    const [contests] = await pool.query(`SELECT id, title, end_date, restricted_club_id FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() AND (restricted_club_id IS NULL OR restricted_club_id = 0 OR restricted_club_id = ?) ORDER BY end_date ASC`, [clubId || null]);
-    const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
+      const [contests] = await pool.query(`SELECT id, title, end_date, restricted_club_id FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() AND (restricted_club_id IS NULL OR restricted_club_id = 0 OR restricted_club_id = ?) ORDER BY end_date ASC`, [clubId || null]);
+      const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
 
-    let homeworks = []; 
-    if (clubId) {
-      const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
-      homeworks = hw;
+      let homeworks = []; 
+      if (clubId) {
+        const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
+        homeworks = hw;
+      }
+
+      const [unreadNews] = await pool.query(`
+        SELECT id, title, created_at, category_id, is_public 
+        FROM photo_club_news 
+        WHERE (is_public = 1 OR (club_id IS NOT NULL AND club_id = ?))
+          AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
+        ORDER BY created_at DESC
+      `, [clubId || 0, req.user.email]);
+
+      const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [req.user.email, req.user.email, req.user.email]);
+      
+      res.json({ contests, weekly, homeworks, unreadNews, mapComments });
+    } catch (err) { 
+      console.error("❌ Dashboard összesítési hiba:", err);
+      res.status(500).json({ error: 'Hiba az értesítések betöltésekor.' }); 
     }
-
-    // 🎯 JAVÍTVA: Kivettük a zárt if(clubId) blokkból, így mindenki látja a csoportokat!
-    // Kibővítettük a kijelölt mezőket a (category_id, is_public) oszlopokkal a frontend bento-kártya számára.
-    const [unreadNews] = await pool.query(`
-      SELECT id, title, created_at, category_id, is_public 
-      FROM photo_club_news 
-      WHERE (is_public = 1 OR (club_id IS NOT NULL AND club_id = ?))
-        AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
-      ORDER BY created_at DESC
-    `, [clubId || 0, req.user.email]);
-
-    const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [req.user.email, req.user.email, req.user.email]);
-    
-    res.json({ contests, weekly, homeworks, unreadNews, mapComments });
-  } catch (err) { 
-    console.error("❌ Dashboard összesítési hiba:", err);
-    res.status(500).json({ error: 'Hiba az értesítések betöltésekor.' }); 
-  }
-});
-
+  });
 
   // ====================================================================
   // 🚫 TILTÓLISTA KEZELÉSE (KIZÁRÓLAG GLOBÁLIS ADMINOKNAK)
   // ====================================================================
-  
-  // 1. Tiltólista teljes lekérése
   app.get('/api/admin/banned-emails', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     try {
@@ -962,7 +871,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 2. Új e-mail végleges kitiltása és az adatok azonnali takarítása
   app.post('/api/admin/banned-emails', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     
@@ -978,10 +886,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       try {
         await conn.beginTransaction();
         
-        // Elhelyezzük a feketelistában
         await conn.query('INSERT IGNORE INTO photo_banned_emails (email) VALUES (?)', [targetEmail]);
-        
-        // GDPR takarítás: Töröljük az aktív felhasználók közül
         await conn.query('DELETE FROM photo_users WHERE email = ?', [targetEmail]);
         
         await conn.commit();
@@ -1006,7 +911,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const clubId = req.user.club_id ? Number(req.user.club_id) : null;
     
     try {
-      // 1. Összeszámoljuk azokat a posztokat, amiket a user még egyáltalán nem nyitott meg
       const [postRows] = await pool.query(`
         SELECT COUNT(*) as count 
         FROM photo_club_news n
@@ -1014,7 +918,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
       `, [clubId, userEmail]);
 
-      // 2. Összeszámoljuk azokat az új kommenteket, amik azóta érkeztek, mióta a user utoljára látta az adott posztot
       const [commentRows] = await pool.query(`
         SELECT COUNT(*) as count 
         FROM photo_club_news_comments cc 
@@ -1031,31 +934,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ totalUnread });
     } catch (err) {
       console.error("❌ Header badge számítási hiba:", err.message);
-      res.json({ totalUnread: 0 }); // Hiba esetén 0-át adunk vissza, hogy ne omoljon össze a menü
+      res.json({ totalUnread: 0 });
     }
   });
   
- // ====================================================================
-  // ❤️ HOZZÁSZÓLÁS LÁJKOLÁS ÖNMŰKÖDŐ ADATBÁZIS-VÉDELEMMEL (500 FIX)
+  // ====================================================================
+  // ❤️ HOZZÁSZÓLÁS LÁJKOLÁS ÖNMŰKÖDŐ ADATBÁZIS-VÉDELEMMEL
   // ====================================================================
   app.post('/api/forum/comments/:id/like', requireAuth, async (req, res) => {
     const commentId = req.params.id;
     const userEmail = req.user.email;
     
     try {
-      // 1. Első lépésként ellenőrizzük a hozzászólás létezését
       const [commentRows] = await pool.query('SELECT user_email, news_id FROM photo_club_news_comments WHERE id = ?', [commentId]);
       if (commentRows.length === 0) {
         return res.status(404).json({ error: 'A hozzászólás nem található!' });
       }
       const authorEmail = commentRows[0].user_email;
 
-      // 2. Megnézzük, lájkolta-e már (ha nincs meg a tábla, a catch ág automatikusan létrehozza)
       let existing = [];
       try {
         [existing] = await pool.query('SELECT id FROM photo_club_news_comment_likes WHERE comment_id = ? AND user_email = ?', [commentId, userEmail]);
       } catch (tableError) {
-        // Ha nem létezik a kapcsolótábla, dinamikusan felépítjük
         await pool.query(`
           CREATE TABLE IF NOT EXISTS photo_club_news_comment_likes (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1065,21 +965,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             UNIQUE KEY unique_comment_user (comment_id, user_email)
           )
         `).catch(()=>{});
-        // Újra megpróbáljuk a lekérdezést
         [existing] = await pool.query('SELECT id FROM photo_club_news_comment_likes WHERE comment_id = ? AND user_email = ?', [commentId, userEmail]);
       }
       
       if (existing.length > 0) {
-        // --- UNLIKE FOLYAMAT ---
         await pool.query('DELETE FROM photo_club_news_comment_likes WHERE comment_id = ? AND user_email = ?', [commentId, userEmail]);
         
-        // Biztonságos csökkentés: ha hiányozna a számláló oszlop, létrehozzuk
         await pool.query('UPDATE photo_club_news_comments SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [commentId]).catch(async () => {
           await pool.query('ALTER TABLE photo_club_news_comments ADD COLUMN likes_count INT DEFAULT 0').catch(()=>{});
           await pool.query('UPDATE photo_club_news_comments SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [commentId]);
         });
 
-        // Pontlevonás korrekció a szerzőtől (-1 pont)
         if (authorEmail && authorEmail !== userEmail) {
           await PointsService.handleTransaction(
             pool, authorEmail, -1, 'forum_comment_like_revoked', commentId,
@@ -1090,16 +986,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         
         return res.json({ success: true, liked: false });
       } else {
-        // --- LIKE FOLYAMAT ---
         await pool.query('INSERT INTO photo_club_news_comment_likes (comment_id, user_email) VALUES (?, ?)', [commentId, userEmail]);
         
-        // Biztonságos növelés: ha hiányozna a számláló oszlop, létrehozzuk
         await pool.query('UPDATE photo_club_news_comments SET likes_count = likes_count + 1 WHERE id = ?', [commentId]).catch(async () => {
           await pool.query('ALTER TABLE photo_club_news_comments ADD COLUMN likes_count INT DEFAULT 0').catch(()=>{});
           await pool.query('UPDATE photo_club_news_comments SET likes_count = likes_count + 1 WHERE id = ?', [commentId]);
         });
 
-        // Pontosztás a szerzőnek (+1 pont)
         if (authorEmail && authorEmail !== userEmail) {
           await PointsService.handleTransaction(
             pool, authorEmail, 1, 'forum_comment_like_received', commentId,
@@ -1115,8 +1008,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba történt a hozzászólás kedvelésekor.' });
     }
   });
-  
-  // 3. Kitiltás feloldása (Unban)
+
   app.delete('/api/admin/banned-emails/:email', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     try {
