@@ -12,11 +12,11 @@ const requireAuth = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     
     // 🎯 TÖBBSZÖRÖS CLIENT ID ELFOGADÁSA (WEB + ANDROID):
-    const allowedAudiences = [
-      process.env.GOOGLE_CLIENT_ID,
-      '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
-      '197361744572-632h3n3p7b1g2k4s5t6u7v8w9x0y1z2a.apps.googleusercontent.com'  // Android Client ID
-    ].filter(Boolean);
+const allowedAudiences = [
+  process.env.GOOGLE_CLIENT_ID,
+  '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
+  '197361744572-IDE_JÖN_A_RENDER_LOGS_BÓL_KIMÁSOLT_VALÓDI_ANDROID_ID.apps.googleusercontent.com'
+].filter(Boolean);
 
     // Google Token ellenőrzése tömb alapon
     const ticket = await client.verifyIdToken({
