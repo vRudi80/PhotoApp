@@ -34,11 +34,18 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Create Fix Debug Keystore & Print SHA-1
+        run: |
+          mkdir -p frontend/android/app
+          keytool -genkey -v -keystore frontend/android/app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+          echo "=== SHA-1 FINGERPRINT BEGIN ==="
+          keytool -list -v -keystore frontend/android/app/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep "SHA1:"
+          echo "=== SHA-1 FINGERPRINT END ==="
+
       - name: Initialize Capacitor Android
         run: |
           cd frontend
           npx cap add android || true
-          npx npx @capacitor/assets generate --android || true
           npx cap copy android
           npx cap update android
 
