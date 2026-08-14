@@ -4,18 +4,7 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
-  // ── 🎯 BIZTONSÁGI CORS KAPU ──
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "https://photawesome.com");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Credentials", "true");
-    
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
-    }
-    next();
-  });
+
   
   // 1. Pályázatok lekérése (Nyilvános)
   app.get('/api/contests', async (req, res) => {
