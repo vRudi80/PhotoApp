@@ -1,6 +1,7 @@
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
+
 const nodemailer = require('nodemailer');
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const fs = require('fs');
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
@@ -17,39 +18,6 @@ function getISOWeekNumber(d) {
 function formatDateForMysql(d) {
   const pad = (num) => String(num).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-// ====================================================================
-// 🔒 AUTH MIDDLEWARE
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen token.' });
-    }
-
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet!' });
-  }
 }
 
 // ====================================================================
@@ -469,14 +437,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       const now = new Date();
 
-      // 1. Lezárjuk a szerdai határidőjüket betöltött régi fordulókat
       await pool.query(
         'UPDATE club_review_rounds SET status = "closed" WHERE club_name = ? AND rating_deadline < ? AND status != "closed"',
         [userDb.club_name, now]
       );
 
-      // 2. Kiszámítjuk a PONTOS E HETI forduló nevét és határidőit
-      const dayOfWeek = now.getDay(); // 0: Vasárnap, 1: Hétfő, ...
+      const dayOfWeek = now.getDay();
       const distToSun = dayOfWeek === 0 ? 0 : (7 - dayOfWeek);
       
       const currentSun = new Date(now);
@@ -490,11 +456,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       const weekNum = getISOWeekNumber(now);
       const weekTitle = `${now.getFullYear()} / ${weekNum}. hét - Heti Képértékelő`;
 
-      // Formázzuk a dátumokat tisztán MySQL-nek
       const currentSunStr = formatDateForMysql(currentSun);
       const currentWedStr = formatDateForMysql(currentWed);
 
-      // 3. Megkeressük az e heti fordulót CÍM alapján
       let [rounds] = await pool.query(
         'SELECT * FROM club_review_rounds WHERE club_name = ? AND title = ? LIMIT 1',
         [userDb.club_name, weekTitle]
@@ -502,7 +466,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       let round = rounds[0];
 
-      // 4. Ha még nem létezik az e heti forduló, létrehozzuk!
       if (!round) {
         try {
           const [ins] = await pool.query(
@@ -522,7 +485,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         }
       }
 
-      // Biztonsági tartalék
       if (!round) {
         const [[fallbackRound]] = await pool.query(
           'SELECT * FROM club_review_rounds WHERE club_name = ? ORDER BY id DESC LIMIT 1',
