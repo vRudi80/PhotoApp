@@ -1,47 +1,8 @@
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
+
 const fs = require('fs');
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PointsService = require('../PointsService'); // 🎯 ÚJ: A gyökérmappába áthelyezett központi pontkezelő beemelése
-
-// A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
-
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A MAP MODULHOZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // Google OAuth IdToken hitelesítése
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba a map modulban:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
+const PointsService = require('../PointsService'); // A gyökérmappába áthelyezett központi pontkezelő
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
@@ -94,8 +55,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       });
       cleanupTempFile(file);
 
-      // 🎯 MODOSÍTVA: Kimentjük a mentési eredményt, hogy megkapjuk a generált helyszín ID-t (insertId)
-      // Kimentjük a mentési eredményt, hogy megkapjuk a generált helyszín ID-t (insertId)
       const [result] = await pool.query(
         'INSERT INTO photo_locations (user_email, user_name, lat, lng, title, description, file_url, drive_file_id, photo_month, photo_time_of_day, camera, lens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
         [req.user.email, req.user.name, lat, lng, title, description, driveRes.data.webViewLink, driveRes.data.id, photoMonth || null, photoTimeOfDay || null, camera || null, lens || null]
@@ -104,7 +63,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       // 🪙 JUTALOMPONT KIOSZTÁS SPAM VÉDELEMMEL
       if (result && result.insertId) {
         try {
-          // 🛡️ ANTI-FRAUD ELLENŐRZÉS: Megszámoljuk, hányszor kapott ma térkép bónuszt a user
           const [dailySpamCheck] = await pool.query(
             "SELECT COUNT(*) as count FROM photo_points_ledger WHERE user_email = ? AND reason_key = 'map_upload' AND DATE(created_at) = CURDATE()",
             [req.user.email]
@@ -113,18 +71,16 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           const todayUploadsCount = dailySpamCheck[0]?.count || 0;
 
           if (todayUploadsCount < 2) { 
-            // 🎯 Max 2 alkalommal kaphat pontot egy nap (szabadon állítható 1-re vagy 3-ra is)
             await PointsService.handleTransaction(
               pool,
               req.user.email,
-              PointsService.CONSTANTS.EARN_MAP_UPLOAD, // +20 pont
+              PointsService.CONSTANTS.EARN_MAP_UPLOAD,
               'map_upload',
               result.insertId,
               `🗺️ Új fotós helyszín feltöltése a térképre: "${title.trim()}"`,
               `Uploaded a new photo location to the map: "${title.trim()}"`
             );
           } else {
-            // Ha elérte a limitet, a pont kimarad, de a konzolra kiírjuk biztonsági naplózásként
             console.log(`ℹ️ Spam Shield aktív: ${req.user.email} elérte a napi térképfeltöltési pontlimitét. A helyszín mentve, bónuszpont elvetve.`);
           }
 
