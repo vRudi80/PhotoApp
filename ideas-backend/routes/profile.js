@@ -1,14 +1,11 @@
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
+
 const fs = require('fs');
 const path = require('path'); 
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' }); // Átmeneti mappa a feltöltött képeknek
-
-// A modul elejére beemeljük a szükséges biztonsági csomagot a Google token hitelesítéshez
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
+const upload = multer({ dest: 'uploads/' });
 
 // Cloudinary konfiguráció szinkronizálása a környezeti változókkal
 cloudinary.config({
@@ -16,49 +13,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
-
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A PROFIL VÉGPONTOKHOZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // 🎯 TÖBBSZÖRÖS CLIENT ID ELFOGADÁSA (WEB + ANDROID):
-    const allowedAudiences = [
-      process.env.GOOGLE_CLIENT_ID,
-      '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
-      '197361744572-632h3n3p7b1g2k4s5t6u7v8w9x0y1z2a.apps.googleusercontent.com'  // Android Client ID
-    ].filter(Boolean);
-
-    // Google OAuth IdToken hitelesítése tömb alapon
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: allowedAudiences, // <-- Így mindkét kliens azonosítót elfogadja!
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
 
 module.exports = function(app, pool) {
   
@@ -91,7 +45,7 @@ module.exports = function(app, pool) {
       // Átmeneti helyi fájl azonnali takarítása a node szerverről
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
-      // 🎯 MENTÉS: Beírjuk a generált Cloudinary secure_url-t a felhasználó 'avatar_url' oszlopába
+      // Beírjuk a generált Cloudinary secure_url-t a felhasználó 'avatar_url' oszlopába
       await pool.query('UPDATE photo_users SET avatar_url = ? WHERE email = ?', [result.secure_url, email]);
 
       res.json({ success: true, avatar_url: result.secure_url });
@@ -103,7 +57,7 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 🏛️ 2. Klubok listájának lekérése (Meglévő kódod alapján)
+  // 🏛️ 2. Klubok listájának lekérése
   // ====================================================================
   app.get('/api/clubs', async (req, res) => {
     try {
@@ -116,7 +70,7 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 🏢 3. Felhasználó klubjának frissítése (Meglévő kódod alapján)
+  // 🏢 3. Felhasználó klubjának frissítése
   // ====================================================================
   app.put('/api/users/update-club', async (req, res) => {
     const { email, clubId } = req.body;
@@ -141,7 +95,7 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 👤 4. Felhasználó nevének módosítása (Meglévő kódod alapján)
+  // 👤 4. Felhasználó nevének módosítása
   // ====================================================================
   app.put('/api/users/update-name', async (req, res) => {
     const { email, newName } = req.body;
@@ -160,7 +114,7 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 🛠️ 5. Klub átnevezése az Admin felületen (Meglévő kódod alapján)
+  // 🛠️ 5. Klub átnevezése az Admin felületen
   // ====================================================================
   app.put('/api/clubs/:id', async (req, res) => {
     const { id } = req.params;
