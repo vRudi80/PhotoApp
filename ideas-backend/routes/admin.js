@@ -1,20 +1,12 @@
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
 const nodemailer = require('nodemailer');
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
-
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Hiányzó token!' });
-    const token = authHeader.split(' ')[1];
-    const ticket = await client.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
-    req.user = { email: ticket.getPayload().email, isAdmin: ticket.getPayload().email === ADMIN_EMAIL };
-    next();
-  } catch (e) { return res.status(401).json({ error: 'Hibás munkamenet!' }); }
-}
 
 module.exports = function(app, pool) {
+  
+  // ====================================================================
+  // ✉️ TÖMEGES ADMIN E-MAIL KÜLDŐ VÉGPONT (VÉDETT)
+  // ====================================================================
   app.post('/api/admin/send-bulk-email', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem vagy adminisztrátor.' });
     
@@ -37,50 +29,49 @@ module.exports = function(app, pool) {
         secure: true,
         auth: { 
           user: process.env.SMTP_USER, 
-          // 🎯 Mindkét változónevet elfogadja a .env fájlból
+          // Mindkét változónevet elfogadja a .env fájlból
           pass: process.env.SMTP_PASSWORD || process.env.SMTP_PASS 
         }
       });
 
       // HTML felismerése
-const isHtml =
-  /^\s*<!DOCTYPE/i.test(body) ||
-  /^\s*<html/i.test(body) ||
-  /<body/i.test(body) ||
-  /<table/i.test(body) ||
-  /<div/i.test(body);
+      const isHtml =
+        /^\s*<!DOCTYPE/i.test(body) ||
+        /^\s*<html/i.test(body) ||
+        /<body/i.test(body) ||
+        /<table/i.test(body) ||
+        /<div/i.test(body);
 
-const mailOptions = {
-  from: `"PhotAwesome - Kővári-Vágner Rudolf" <${process.env.SMTP_USER}>`,
-  to: process.env.SMTP_USER,
-  bcc: validEmails,
-  subject,
+      const mailOptions = {
+        from: `"PhotAwesome - Kővári-Vágner Rudolf" <${process.env.SMTP_USER}>`,
+        to: process.env.SMTP_USER,
+        bcc: validEmails,
+        subject,
 
-  ...(isHtml
-    ? {
-        html: body
-      }
-    : {
-        html: `
-          <div style="
-              font-family:Arial,Helvetica,sans-serif;
-              max-width:700px;
-              margin:auto;
-              padding:30px;
-              line-height:1.6;
-              color:#333333;
-          ">
-            ${body.replace(/\n/g, "<br>")}
-          </div>
-        `,
-        text: body
-      })
-};
+        ...(isHtml
+          ? {
+              html: body
+            }
+          : {
+              html: `
+                <div style="
+                    font-family:Arial,Helvetica,sans-serif;
+                    max-width:700px;
+                    margin:auto;
+                    padding:30px;
+                    line-height:1.6;
+                    color:#333333;
+                ">
+                  ${body.replace(/\n/g, "<br>")}
+                </div>
+              `,
+              text: body
+            })
+      };
 
       await transporter.sendMail(mailOptions);
       res.json({ success: true, message: 'Levelek sikeresen elküldve.' });
     } catch (error) { 
-      // 🎯 Részletes hiba kiírása a szerver konzolra és a válaszba is
       console.error("❌ E-mail küldési hiba:", error);
       res.status(500).json({ error: 'Szerveroldali hiba a küldés során: ' + (error.message || error) }); 
     }
