@@ -1,51 +1,5 @@
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-// 🎯 A te valódi admin e-mailed biztonsági tartaléknak
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
-
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A TICKETS MODULHOZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // 🎯 TÖBBSZÖRÖS CLIENT ID ELFOGADÁSA (WEB + ANDROID):
-    const allowedAudiences = [
-      process.env.GOOGLE_CLIENT_ID,
-      '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
-      '197361744572-632h3n3p7b1g2k4s5t6u7v8w9x0y1z2a.apps.googleusercontent.com'  // Android Client ID
-    ].filter(Boolean);
-
-    // Google OAuth IdToken hitelesítése tömb alapon
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: allowedAudiences, // <-- Így mindkét kliens azonosítót elfogadja!
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
 
 module.exports = function(app, pool) {
 
@@ -86,11 +40,10 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 2. Hibajegyek listázása (JAVÍTVA ÉS BIZTONSÁGOSSÁ TEVVE)
+  // 2. Hibajegyek listázása (VÉDETT)
   // ====================================================================
   app.get('/api/tickets', requireAuth, async (req, res) => {
     try { 
-      // 🎯 JAVÍTVA: Ha admin kéri, lekérjük az ÖSSZES hibajegyet az igazi nyomtatványtáblából!
       if (req.user.isAdmin) {
         const [rows] = await pool.query(
           'SELECT * FROM weekly_tickets ORDER BY updated_at DESC'
@@ -98,7 +51,6 @@ module.exports = function(app, pool) {
         return res.json(rows);
       }
 
-      // Sima felhasználónak szigorúan csak a saját jegyeit adjuk vissza
       const [rows] = await pool.query(
         'SELECT * FROM weekly_tickets WHERE user_email = ? ORDER BY updated_at DESC', 
         [req.user.email]
@@ -171,12 +123,11 @@ module.exports = function(app, pool) {
         return res.status(403).json({ error: 'Nincs jogosultságod ehhez a jegyhez!' });
       }
 
-      await pool.query(
+      await conn.query(
         'INSERT INTO weekly_ticket_replies (ticket_id, sender_email, sender_name, message) VALUES (?, ?, ?, ?)',
         [ticketId, req.user.email, req.user.name, message.trim()]
       );
 
-      // Automatikus státusz- és olvasottság-kezelés
       if (req.user.isAdmin) {
         await pool.query('UPDATE weekly_tickets SET user_unread = 1, status = IF(status = "open", "in_progress", status) WHERE id = ?', [ticketId]);
       } else {
