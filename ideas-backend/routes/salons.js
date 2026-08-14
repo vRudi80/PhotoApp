@@ -1,45 +1,5 @@
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-// 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
-
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A SALONS MODULHOZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // Google OAuth IdToken hitelesítése
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba a salons modulban:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
 
 module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload, cleanupTempFile) {
 
@@ -167,7 +127,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     const targetEmail = req.query.userEmail;
     if (!targetEmail) return res.status(400).json({ error: 'Hiányzó email!' });
 
-    // 🔒 BIZTONSÁGI PAJZS: Megszünteti az IDOR-t, senki nem leshet bele más nevezési listájába
     if (req.user.email !== targetEmail && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem kérheted le más fotós szaloneredményeit.' });
     }
@@ -181,7 +140,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   app.post('/api/salon-entries', requireAuth, async (req, res) => {
     const { salonId, userEmail, portfolioId, category } = req.body;
     
-    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk a fiókhullám-eltérítést
     if (req.user.email !== userEmail) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem nevezhetsz más fiókjának nevében.' });
     }
@@ -201,7 +159,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       return res.status(400).json({ error: 'Hiányzó felhasználói e-mail!' });
     }
 
-    // 🔒 BIZTONSÁGI PAJZS: Csak a saját nevezésedet vonhatod vissza
     if (req.user.email !== userEmail && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nincs jogod más nevezését törölni.' });
     }
@@ -234,7 +191,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   app.put('/api/salon-entries/:id/results', requireAuth, async (req, res) => {
     const { awardId, achievedScore, acceptanceScore, customAward, userEmail } = req.body;
     
-    // 🔒 BIZTONSÁGI PAJZS: Senki nem írhat be hamis kiállítási díjakat más nevében
     if (req.user.email !== userEmail && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Nincs jogosultságod más eredményeit frissíteni.' });
     }
@@ -414,7 +370,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   });
 
   app.post('/api/admin/analyze-fiap-id', requireAuth, async (req, res) => {
-    // 🔒 BIZTONSÁGI PAJZS: Megakadályozza a Gemini AI egyenleg lemerítését botok által!
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva! Gemini elemzés csak az admin számára engedélyezett.' });
 
     const { fiapNumber } = req.body;
@@ -491,7 +446,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     const { userEmail } = req.body;
     if (!req.file) return res.status(400).json({ error: 'Nincs fájl feltöltve!' });
     
-    // 🔒 BIZTONSÁGI PAJZS: Szigorúan a hitelesített req.user.email-hez kötjük az import elemzést
     if (req.user.email !== userEmail) {
       cleanupTempFile(req.file);
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem importálhatsz adatokat más fiókjába.' });
@@ -551,7 +505,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   app.post('/api/import/execute', requireAuth, checkPremium, async (req, res) => {
     const { userEmail, userName, items } = req.body; 
     
-    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy valaki egy scriptekkel mások profiljába töltsön be rekordokat
     if (req.user.email !== userEmail) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Az eredmények mentése csak a saját fiókba lehetséges.' });
     }
