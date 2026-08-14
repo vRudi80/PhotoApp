@@ -1,46 +1,8 @@
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
 const fs = require('fs');
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
-
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A HOMEWORKS MODULHOZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // Google OAuth IdToken hitelesítése
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba a homeworks modulban:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
@@ -49,7 +11,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     if (email === ADMIN_EMAIL) return true;
     const [rows] = await pool.query('SELECT club_id, club_role FROM photo_users WHERE email = ?', [email]);
     if (rows.length === 0) return false;
-    // Ha egyezik a klub ID, VAGY az illető az adott klub vezetője/helyettese
     return Number(rows[0].club_id) === Number(clubId);
   }
 
@@ -131,7 +92,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const targetEmail = req.query.userEmail;
     if (!targetEmail) return res.status(400).json({ error: 'Hiányzó email cím!' });
 
-    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy valaki más leadott munkáit halássza ki
     if (req.user.email !== targetEmail && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem kérheted le más fotós egyéni leadásait.' });
     }
@@ -143,12 +103,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 6. Egy adott klub összes leadásának megtekintése (VÉDETT - Klubszintű GDPR gát)
+  // 6. Egy adott klub összes leadásának megtekintése (VÉDETT)
   // ====================================================================
   app.get('/api/homework-entries/club/:clubId', requireAuth, async (req, res) => {
     const clubId = req.params.clubId;
 
-    // 🔒 BIZTONSÁGI PAJZS: Külsősök nem leskelődhetnek a klub belső házi feladatai között!
     if (!await checkClubOrAdminAccess(req.user.email, clubId)) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem vagy tagja ennek a fotóklubnak.' });
     }
@@ -169,7 +128,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 7. Új kép feltöltése házi feladathoz (VÉDETT - Hamisítás-biztosítva)
+  // 7. Új kép feltöltése házi feladathoz (VÉDETT)
   // ====================================================================
   app.post('/api/upload-homework', requireAuth, upload.single('photo'), async (req, res) => {
     const file = req.file;
@@ -177,7 +136,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     
     const { homeworkId, userEmail, userName, title } = req.body;
 
-    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy valaki más nevében töltsön fel képet
     if (req.user.email !== userEmail) {
       cleanupTempFile(file);
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem nevezhetsz más fotós nevében.' });
@@ -187,7 +145,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [hwRows] = await pool.query('SELECT club_id, max_images FROM photo_homeworks WHERE id = ?', [homeworkId]);
       if (hwRows.length === 0) { cleanupTempFile(file); return res.status(404).json({ error: 'A házi feladat nem található!' }); }
       
-      // Ellenőrizzük, hogy valóban tagja-e annak a klubnak, ahova fel szeretne tölteni
       if (!await checkClubOrAdminAccess(req.user.email, hwRows[0].club_id)) {
         cleanupTempFile(file);
         return res.status(403).json({ error: 'Nem tartozol ehhez a klubhoz, így nem adhatsz le házi feladatot!' });
@@ -208,11 +165,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 8. Leadott kép címének frissítése (VÉDETT - Felülírás elleni gát)
+  // 8. Leadott kép címének frissítése (VÉDETT)
   // ====================================================================
   app.put('/api/homework-entries/:id', requireAuth, async (req, res) => {
     try {
-      // Szigorúan a hitelesített munkamenet-e-mail alapján engedélyezzük a módosítást!
       const [result] = await pool.query('UPDATE photo_homework_entries SET title = ? WHERE id = ? AND user_email = ?', [req.body.title, req.params.id, req.user.email]);
       if (result.affectedRows === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet, vagy a kép nem létezik!' });
       res.json({ success: true });
@@ -220,7 +176,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 9. Leadott kép törlése (VÉDETT - Illetéktelen törlés letiltva)
+  // 9. Leadott kép törlése (VÉDETT)
   // ====================================================================
   app.delete('/api/homework-entries/:id', requireAuth, async (req, res) => {
     const entryId = req.params.id;
@@ -228,11 +184,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [rows] = await pool.query('SELECT * FROM photo_homework_entries WHERE id = ?', [entryId]);
       if (rows.length === 0) return res.status(404).json({ error: 'A kép nem található!' });
 
-      // Megnézzük melyik házi feladathoz tartozik, hogy a klubvezetők is törölhessék ha szükséges
       const [hw] = await pool.query('SELECT club_id FROM photo_homeworks WHERE id = ?', [rows[0].homework_id]);
       const isLeaderOfClub = hw.length > 0 ? await isClubLeaderOrAdmin(req.user.email, hw[0].club_id) : false;
 
-      // Csak a saját képét törölheti, vagy ha ő a klub bejegyzett vezetője / főadminja
       if (rows[0].user_email !== req.user.email && !isLeaderOfClub) {
         return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a képet!' });
       }
@@ -275,7 +229,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       return res.status(400).json({ error: 'Nincs kiválasztott kép a tömörítéshez.' });
     }
 
-    // 🔒 BIZTONSÁGI PAJZS: Csak a klub vezetője töltheti le tömegesen a tagok képeit ZIP-ben
     if (clubId && !await isClubLeaderOrAdmin(req.user.email, clubId)) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak klubvezetők jogosultak a ZIP letöltésre.' });
     }
