@@ -1,21 +1,11 @@
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
-
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token szükséges!' });
-    const token = authHeader.split(' ')[1];
-    const ticket = await client.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
-    const payload = ticket.getPayload();
-    req.user = { email: payload.email, name: payload.name, isAdmin: payload.email === ADMIN_EMAIL };
-    next();
-  } catch (e) { return res.status(401).json({ error: 'Érvénytelen munkamenet!' }); }
-}
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
 
 module.exports = function(app, pool, stripe) {
 
+  // ====================================================================
+  // 💳 STRIPE CHECKOUT SESSION LÉTREHOZÁSA (PRÉMIUM ELŐFIZETÉS)
+  // ====================================================================
   app.post('/api/create-checkout-session', requireAuth, async (req, res) => {
     const { userEmail, tier } = req.body;
     if (req.user.email !== userEmail) return res.status(403).json({ error: 'Csalás észlelve!' });
@@ -45,6 +35,9 @@ module.exports = function(app, pool, stripe) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
   
+  // ====================================================================
+  // 🏆 PÁLYÁZATI NEVEZÉSI DÍJ FIZETÉSI SESSION
+  // ====================================================================
   app.post('/api/create-contest-payment', requireAuth, async (req, res) => {
     const { userEmail, contestId, returnUrl } = req.body;
     if (req.user.email !== userEmail) return res.status(403).json({ error: 'Nincs jogosultságod!' });
@@ -69,13 +62,15 @@ module.exports = function(app, pool, stripe) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
   
- // 💳 NEVEZÉSI DÍJ FIZETÉSEK LEKÉRÉSE (Admin: Összes, Tagok: Saját befizetések)
+  // ====================================================================
+  // 💳 NEVEZÉSI DÍJ FIZETÉSEK LEKÉRÉSE (Admin: Összes, Tagok: Saját befizetések)
+  // ====================================================================
   app.get('/api/contest-payments', requireAuth, async (req, res) => {
     try {
       let query = 'SELECT contest_id, user_email FROM photo_contest_payments WHERE status = "paid"';
       let params = [];
 
-      // Ha NEM admin, kizárólag a saját befizetéseit érheti el (elkerülve a 403-as hibát)
+      // Ha NEM admin, kizárólag a saját befizetéseit érheti el
       if (!req.user.isAdmin) {
         query += ' AND user_email = ?';
         params.push(req.user.email);
@@ -89,7 +84,9 @@ module.exports = function(app, pool, stripe) {
     }
   });
 
-  // GOLYÓÁLLÓ VÉDELEM: Senki nem léphet be más számlázási fiókjába
+  // ====================================================================
+  // 🏛️ STRIPE ÜGYFÉLKAPU (PORTAL SESSION) LÉTREHOZÁSA
+  // ====================================================================
   app.post('/api/create-portal-session', requireAuth, async (req, res) => {
     const { userEmail } = req.body;
     if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
