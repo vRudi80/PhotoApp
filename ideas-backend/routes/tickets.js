@@ -16,9 +16,17 @@ async function requireAuth(req, res, next) {
 
     const token = authHeader.split(' ')[1];
     
+    // 🎯 TÖBBSZÖRÖS CLIENT ID ELFOGADÁSA (WEB + ANDROID):
+    const allowedAudiences = [
+      process.env.GOOGLE_CLIENT_ID,
+      '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
+      '197361744572-632h3n3p7b1g2k4s5t6u7v8w9x0y1z2a.apps.googleusercontent.com'  // Android Client ID
+    ].filter(Boolean);
+
+    // Google OAuth IdToken hitelesítése tömb alapon
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: allowedAudiences, // <-- Így mindkét kliens azonosítót elfogadja!
     });
     
     const payload = ticket.getPayload();
@@ -34,7 +42,7 @@ async function requireAuth(req, res, next) {
 
     next();
   } catch (error) {
-    console.error("🔒 Biztonsági őr hiba a tickets modulban:", error.message);
+    console.error("🔒 Biztonsági őr hiba:", error.message);
     return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
   }
 }
