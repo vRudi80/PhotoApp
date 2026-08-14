@@ -20,10 +20,17 @@ async function requireAuth(req, res, next) {
 
     const token = authHeader.split(' ')[1];
     
-    // Google OAuth IdToken hitelesítése
+    // 🎯 JAVÍTVA: Elfogadjuk a Webes és az Androidos Google Client ID-t is!
+    const allowedAudiences = [
+      process.env.GOOGLE_CLIENT_ID,
+      '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
+      '197361744572-632h3n3p7b1g2k4s5t6u7v8w9x0y1z2a.apps.googleusercontent.com'  // Android Client ID
+    ].filter(Boolean);
+
+    // Google OAuth IdToken hitelesítése többszörös Client ID támogatással
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: allowedAudiences,
     });
     
     const payload = ticket.getPayload();
@@ -31,7 +38,6 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
     }
 
-    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
     req.user = {
       email: payload.email,
       name: payload.name,
