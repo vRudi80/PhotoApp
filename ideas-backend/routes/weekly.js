@@ -1,9 +1,11 @@
+// 🎯 1. BEHÚZZUK A KÖZPONTI VÉDELMET (Ez kezeli a Webes és Androidos Google tokeneket):
+const { requireAuth } = require('../authMiddleware');
+
+// 2. MEGŐRIZZÜK A WEEKLY MODUL SAJÁT EGYÉDI CSOMAGJAIT:
 const fs = require('fs');
 const path = require('path'); 
 const cloudinary = require('cloudinary').v2;
 const crypto = require('crypto');
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const axios = require('axios');
 const PointsService = require('../PointsService');
 
@@ -16,49 +18,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
-
-// ====================================================================
-// 🔒 AUTHENTICATION MIDDLEWARE
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // 🎯 TÖBBSZÖRÖS CLIENT ID ELFOGADÁSA (WEB + ANDROID):
-    const allowedAudiences = [
-      process.env.GOOGLE_CLIENT_ID,
-      '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
-      '197361744572-632h3n3p7b1g2k4s5t6u7v8w9x0y1z2a.apps.googleusercontent.com'  // Android Client ID
-    ].filter(Boolean);
-
-    // Google OAuth IdToken hitelesítése tömb alapon
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: allowedAudiences, // <-- Így mindkét kliens azonosítót elfogadja!
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
 
 // ====================================================================
 // 🎯 A PONTRENDSZER KÖZPONTOSÍTOTT FORRÁSA (Fair Score SQL)
