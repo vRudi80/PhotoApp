@@ -42,9 +42,10 @@ jobs:
           npx cap copy android
           npx cap update android
 
-      - name: Setup Keystore from Secret or Generate New
+      - name: Setup Keystore from Secret and Force Gradle Usage
         run: |
           mkdir -p frontend/android/app
+          mkdir -p ~/.android
           cd frontend/android/app
           
           if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
@@ -53,17 +54,22 @@ jobs:
           else
             echo "--- Új állandó Keystore generálása ---"
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-            echo "=========================================================="
-            echo "=== MÁSOLD KI AZ ALÁBBI BASE64 KÓDOT A GITHUB SECRET-BE: ==="
-            base64 -w 0 debug.keystore
-            echo ""
-            echo "=========================================================="
           fi
 
+          # 🔑 KÉNYSZERÍTJÜK A GRADLE-T, HOGY EZT A KULCSOT HASZNÁLJA AZ APK ALÁÍRÁSÁHOZ:
+          cp debug.keystore ~/.android/debug.keystore
+
           echo "=========================================="
-          echo "=== A VÉGLEGES, ÖRÖK SHA-1 FINGERPRINT: ==="
-          keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android | grep "SHA1:"
+          echo "=== A GRADLE ÁLTAL HASZNÁLT SHA-1: ==="
+          keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep "SHA1:"
           echo "=========================================="
+
+      - name: Inject Google Server Client ID into Android Strings
+        run: |
+          STRINGS_FILE="frontend/android/app/src/main/res/values/strings.xml"
+          if [ -f "$STRINGS_FILE" ]; then
+            sed -i '/<\/resources>/i \    <string name="server_client_id">197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com<\/string>' "$STRINGS_FILE"
+          fi
 
       - name: Build Android APK
         run: |
