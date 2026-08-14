@@ -1,52 +1,8 @@
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
+
 const fs = require('fs');
 const axios = require('axios');
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
-
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE AN ALBUM MODULHOZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // 🎯 TÖBBSZÖRÖS CLIENT ID ELFOGADÁSA (WEB + ANDROID):
-    const allowedAudiences = [
-      process.env.GOOGLE_CLIENT_ID,
-      '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
-      '197361744572-632h3n3p7b1g2k4s5t6u7v8w9x0y1z2a.apps.googleusercontent.com'  // Android Client ID
-    ].filter(Boolean);
-
-    // Google OAuth IdToken hitelesítése tömb alapon
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: allowedAudiences, // <-- Így mindkét kliens azonosítót elfogadja!
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
 
 module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, checkPremium) {
   
@@ -329,35 +285,36 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
       res.status(500).json({ error: 'Szerver hiba' });
     }
   });
+
   // 🎯 SAJÁT TÁRHELY STATISZTIKA (MINDEN BEJELENTKEZETT USERNEK ELÉRHETŐ)
-app.get('/api/my-storage-stats', requireAuth, async (req, res) => {
-  try {
-    const userEmail = req.user.email;
-    const query = `
-      SELECT COALESCE(COUNT(*), 0) as total_photos, COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
-      FROM (
-        SELECT user_email, file_size FROM photo_portfolio
-        UNION ALL
-        SELECT user_email, file_size FROM photo_entries
-        UNION ALL
-        SELECT user_email, file_size FROM photo_homework_entries
-      ) as all_photos
-      WHERE user_email = ?
-    `;
-    const [rows] = await pool.query(query, [userEmail]);
-    res.json({
-      user_email: userEmail,
-      total_photos: Number(rows[0]?.total_photos || 0),
-      total_bytes: Number(rows[0]?.total_bytes || 0)
-    });
-  } catch (err) {
-    console.error('Hiba a saját tárhely lekérésekor:', err);
-    res.status(500).json({ error: 'Szerver hiba' });
-  }
-});
+  app.get('/api/my-storage-stats', requireAuth, async (req, res) => {
+    try {
+      const userEmail = req.user.email;
+      const query = `
+        SELECT COALESCE(COUNT(*), 0) as total_photos, COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+        FROM (
+          SELECT user_email, file_size FROM photo_portfolio
+          UNION ALL
+          SELECT user_email, file_size FROM photo_entries
+          UNION ALL
+          SELECT user_email, file_size FROM photo_homework_entries
+        ) as all_photos
+        WHERE user_email = ?
+      `;
+      const [rows] = await pool.query(query, [userEmail]);
+      res.json({
+        user_email: userEmail,
+        total_photos: Number(rows[0]?.total_photos || 0),
+        total_bytes: Number(rows[0]?.total_bytes || 0)
+      });
+    } catch (err) {
+      console.error('Hiba a saját tárhely lekérésekor:', err);
+      res.status(500).json({ error: 'Szerver hiba' });
+    }
+  });
 
   // ====================================================================
-  // 6. VALÓDI AI KÉPELEMZÉS (AZ EREDETI LOGIKÁD SZERINT, TÖMÖRÍTETT LOPOTT KISKÉPPEL)
+  // 6. VALÓDI AI KÉPELEMZÉS (TÖMÖRÍTETT KISKÉPPEL)
   // ====================================================================
   app.post('/api/my-album/:id/analyze', requireAuth, checkPremium, async (req, res) => {
     try {
@@ -367,7 +324,6 @@ app.get('/api/my-storage-stats', requireAuth, async (req, res) => {
       const photo = rows[0];
       if (!photo.drive_file_id) return res.status(400).json({ error: 'Fizikai fájl nem található az AI elemzéshez.' });
 
-      // 🎯 MODIFIKÁCIÓ: A nyers 20MB-os fájl helyett a Drive API-tól a 1024px-es tömörített képet kérjük le!
       let imageBuffer = null;
       try {
         const fileMeta = await drive.files.get({ fileId: photo.drive_file_id, fields: 'thumbnailLink' });
@@ -380,7 +336,6 @@ app.get('/api/my-storage-stats', requireAuth, async (req, res) => {
         console.warn('⚡ Kiskép letöltés sikertelen, tartalék nyers letöltés indítása...');
       }
 
-      // Tartalék: ha a thumbnailLink valamiért hiányzik, letölti a nyers képet az eredeti módszereddel
       if (!imageBuffer) {
         const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
         imageBuffer = Buffer.from(driveRes.data);
@@ -389,7 +344,6 @@ app.get('/api/my-storage-stats', requireAuth, async (req, res) => {
       const base64Image = imageBuffer.toString('base64');
       imageBuffer = null;
 
-      // 🎯 ERRE A RÉSZRE NEM NYÚLTUNK HOZZÁ - TELJESEN A TE EREDETI KÓDOD!
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash",
         generationConfig: { responseMimeType: "application/json" } 
