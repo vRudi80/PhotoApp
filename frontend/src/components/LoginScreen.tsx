@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@capacitor-community/google-auth';
 
 // Professzionális Lucide ikonok importálása
 import { 
@@ -34,8 +36,9 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
-  
   const { t, lang, setLang } = useLanguage();
+  const [isNativeApp, setIsNativeApp] = useState(false);
+  const [isNativeLoggingIn, setIsNativeLoggingIn] = useState(false);
   
   let theme = 'dark';
   try {
@@ -50,7 +53,39 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       document.documentElement.style.backgroundColor = 'var(--bg-main)';
       document.body.style.backgroundColor = 'var(--bg-main)';
     }
+
+    const nativeCheck = Capacitor.isNativePlatform();
+    setIsNativeApp(nativeCheck);
+
+    if (nativeCheck) {
+      GoogleAuth.initialize({
+        clientId: '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com',
+        scopes: ['profile', 'email'],
+        grantOfflineAccess: true,
+      }).catch(err => console.warn("GoogleAuth init warning:", err));
+    }
   }, [theme]);
+
+  const handleNativeGoogleSignIn = async () => {
+    try {
+      setIsNativeLoggingIn(true);
+      const googleUser = await GoogleAuth.signIn();
+      const idToken = googleUser.authentication.idToken || (googleUser as any).idToken;
+      
+      if (idToken) {
+        onLoginSuccess(idToken);
+      } else {
+        alert("Nem sikerült beolvasni a Google azonosító tokent.");
+      }
+    } catch (error: any) {
+      console.error("Natív Google belépési hiba:", error);
+      if (error?.message && !error.message.includes('canceled') && !error.message.includes('12501')) {
+        alert(`Google belépési hiba: ${error.message || 'Ismeretlen hiba'}`);
+      }
+    } finally {
+      setIsNativeLoggingIn(false);
+    }
+  };
 
   const currentLogo = lang === 'en' ? logoEn : logoHu;
 
@@ -219,14 +254,47 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             justifyContent: 'center', 
             boxSizing: 'border-box' 
           }}>
-            <GoogleLogin 
-              onSuccess={(res) => onLoginSuccess(res.credential!)} 
-              shape="pill" 
-              size="large" 
-              theme={theme === 'dark' ? "filled_black" : "outline"} 
-              text="continue_with"
-              locale={lang} 
-            />
+            {isNativeApp ? (
+              <button
+                onClick={handleNativeGoogleSignIn}
+                disabled={isNativeLoggingIn}
+                style={{
+                  width: '100%',
+                  padding: '12px 20px',
+                  borderRadius: '50px',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  border: 'none',
+                  fontSize: '0.95rem',
+                  fontWeight: 'bold',
+                  cursor: isNativeLoggingIn ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.617z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+                  <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.098-1.17.282-1.71V4.958H.957A8.996 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+                </svg>
+                {isNativeLoggingIn 
+                  ? (lang === 'en' ? 'Signing in...' : 'Belépés...') 
+                  : (lang === 'en' ? 'Continue with Google' : 'Folytatás Google-fiókkal')}
+              </button>
+            ) : (
+              <GoogleLogin 
+                onSuccess={(res) => onLoginSuccess(res.credential!)} 
+                shape="pill" 
+                size="large" 
+                theme={theme === 'dark' ? "filled_black" : "outline"} 
+                text="continue_with"
+                locale={lang} 
+              />
+            )}
           </div>
 
           <div style={{
@@ -373,14 +441,47 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </p>
 
           <div style={{ display: 'inline-block', background: 'var(--bg-card)', padding: '20px 28px', borderRadius: '20px', border: '1px solid var(--border-main)', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-            <GoogleLogin 
-              onSuccess={(res) => onLoginSuccess(res.credential!)} 
-              shape="pill" 
-              size="large" 
-              theme={theme === 'dark' ? "filled_black" : "outline"} 
-              text="continue_with"
-              locale={lang} 
-            />
+            {isNativeApp ? (
+              <button
+                onClick={handleNativeGoogleSignIn}
+                disabled={isNativeLoggingIn}
+                style={{
+                  width: '100%',
+                  padding: '12px 20px',
+                  borderRadius: '50px',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  border: 'none',
+                  fontSize: '0.95rem',
+                  fontWeight: 'bold',
+                  cursor: isNativeLoggingIn ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.617z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+                  <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.098-1.17.282-1.71V4.958H.957A8.996 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+                </svg>
+                {isNativeLoggingIn 
+                  ? (lang === 'en' ? 'Signing in...' : 'Belépés...') 
+                  : (lang === 'en' ? 'Continue with Google' : 'Folytatás Google-fiókkal')}
+              </button>
+            ) : (
+              <GoogleLogin 
+                onSuccess={(res) => onLoginSuccess(res.credential!)} 
+                shape="pill" 
+                size="large" 
+                theme={theme === 'dark' ? "filled_black" : "outline"} 
+                text="continue_with"
+                locale={lang} 
+              />
+            )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '24px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
