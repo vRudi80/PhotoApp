@@ -38,6 +38,7 @@ jobs:
         run: |
           cd frontend
           npx cap add android || true
+          npx npx @capacitor/assets generate --android || true
           npx cap copy android
           npx cap update android
 
