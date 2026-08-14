@@ -42,64 +42,25 @@ jobs:
           npx cap copy android
           npx cap update android
 
-      - name: Setup Keystore from Secret
+      - name: Setup Fixed Keystore from Secret
         run: |
           mkdir -p frontend/android/app
-          mkdir -p ~/.android
           cd frontend/android/app
           
           if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "--- Állandó Keystore betöltése a GitHub Secret-ből ---"
             echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > debug.keystore
-            cp debug.keystore ~/.android/debug.keystore
+          else
+            echo "--- Új Keystore generálása ---"
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Inject Runtime Debug Popup into MainActivity
+      - name: Force Gradle to strictly use our Secret Keystore
         run: |
-          cat << 'EOF' > frontend/android/app/src/main/java/com/photawesome/app/MainActivity.java
-          package com.photawesome.app;
-
-          import android.os.Bundle;
-          import android.content.pm.PackageInfo;
-          import android.content.pm.PackageManager;
-          import android.content.pm.Signature;
-          import com.getcapacitor.BridgeActivity;
-          import java.security.MessageDigest;
-
-          public class MainActivity extends BridgeActivity {
-              @Override
-              public void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  try {
-                      PackageInfo info = getPackageManager().getPackageInfo(
-                          getPackageName(),
-                          PackageManager.GET_SIGNATURES
-                      );
-                      for (Signature signature : info.signatures) {
-                          MessageDigest md = MessageDigest.getInstance("SHA");
-                          md.update(signature.toByteArray());
-                          byte[] digest = md.digest();
-                          StringBuilder hexString = new StringBuilder();
-                          for (int i = 0; i < digest.length; i++) {
-                              if (i > 0) hexString.append(":");
-                              String hex = Integer.toHexString(0xFF & digest[i]);
-                              if (hex.length() == 1) hexString.append("0");
-                              hexString.append(hex.toUpperCase());
-                          }
-                          String sha1 = hexString.toString();
-                          runOnUiThread(() -> {
-                              new android.app.AlertDialog.Builder(this)
-                                  .setTitle("🔍 A TELEFON ÁLTAL HASZNÁLT ADATOK")
-                                  .setMessage("Csomagnév:\n" + getPackageName() + "\n\nTényleges SHA-1:\n" + sha1)
-                                  .setPositiveButton("OK", null)
-                                  .show();
-                          });
-                      }
-                  } catch (Exception e) {
-                      e.printStackTrace();
-                  }
-              }
-          }
-          EOF
+          GRADLE_FILE="frontend/android/app/build.gradle"
+          if [ -f "$GRADLE_FILE" ]; then
+            sed -i '/signingConfigs {/a \        debug {\n            storeFile file("debug.keystore")\n            storePassword "android"\n            keyAlias "androiddebugkey"\n            keyPassword "android"\n        }' "$GRADLE_FILE"
+          fi
 
       - name: Inject Google Client IDs into Android Strings
         run: |
@@ -117,6 +78,14 @@ jobs:
           cd frontend/android
           chmod +x gradlew
           ./gradlew assembleDebug
+
+      - name: Verify Final Permanent SHA-1 from APK
+        run: |
+          APK_PATH="frontend/android/app/build/outputs/apk/debug/app-debug.apk"
+          echo "============================================================"
+          echo "=== AZ ÉLETBEN TÖBBÉ NEM VÁLTOZÓ ÁLLANDÓ SHA-1 KÓDOD: ==="
+          keytool -printcert -jarfile "$APK_PATH" | grep "SHA1:"
+          echo "============================================================"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
