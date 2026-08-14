@@ -1,55 +1,13 @@
-// A modul elejére beemeljük a szükséges biztonsági csomagot a tokengeneráláshoz/ellenőrzéshez
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// 1. Behúzzuk a központi, golyóálló token-ellenőrzőt (Ez védi az API-t!)
+const { requireAuth } = require('../authMiddleware');
+
+// 2. Csak azok a csomagok maradnak, amik ehhez a specifikus fájlhoz kellenek:
 const multer = require('multer'); 
-const upload = multer({ dest: 'uploads/' }); // Átmeneti mappa a feltöltött fájlnak
+const upload = multer({ dest: 'uploads/' }); 
 const fs = require('fs'); 
-const cloudinary = require('cloudinary').v2; // 🎯 ÚJ: Cloudinary integráció behúzása
+const cloudinary = require('cloudinary').v2; 
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'kovari.rudolf@gmail.com';
-
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // 🎯 JAVÍTVA: Elfogadjuk a Webes és az Androidos Google Client ID-t is!
-    const allowedAudiences = [
-      process.env.GOOGLE_CLIENT_ID,
-      '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com', // Web Client ID
-      '197361744572-632h3n3p7b1g2k4s5t6u7v8w9x0y1z2a.apps.googleusercontent.com'  // Android Client ID
-    ].filter(Boolean);
-
-    // Google OAuth IdToken hitelesítése többszörös Client ID támogatással
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: allowedAudiences,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
 
 module.exports = function(app, pool) {
   
