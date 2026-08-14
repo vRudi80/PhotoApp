@@ -1,275 +1,155 @@
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PointsService = require('../PointsService'); // 🎯 Beemeljük a központi pontkezelőt (igazítsd az útvonalat, ha máshová tetted)
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'kovari.rudolf@gmail.com';
-
-// ====================================================================
-// 🔒 BIZTONSÁGI ŐR (MIDDLEWARE) A BOLT VÉDELMÉHEZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági hiba a Pontboltban:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
 
 module.exports = function(app, pool) {
 
   // ====================================================================
-  // 🃏 1. JOKER CSERE VÁSÁRLÁSA PONTÉRT
+  // 1. Új hibajegy nyitása (VÉDETT)
   // ====================================================================
-  app.post('/api/store/buy-swap', requireAuth, async (req, res) => {
-    const userEmail = req.user.email; // 🔒 GDPR/IDOR FIX: Szigorúan a Google tokenből vesszük az emailt!
-    const cost = -PointsService.CONSTANTS.COST_BUY_SWAP; // -50 pont
+  app.post('/api/tickets', requireAuth, async (req, res) => {
+    const { userEmail, userName, subject, message } = req.body;
+    if (!userEmail || !subject || !message) return res.status(400).json({ error: 'Minden mező kitöltése kötelező!' });
 
+    if (req.user.email !== userEmail) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem nyithatsz hibajegyet más e-mail címmel.' });
+    }
+
+    const conn = await pool.getConnection();
     try {
-      // 1. Lefuttatjuk a pontlevonást és a naplózást a belső biztonságos tranzakcióval
-      const txResult = await PointsService.handleTransaction(
-        pool,
-        userEmail,
-        cost,
-        'buy_swap',
-        null,
-        '1 db Joker csere kupon vásárlása',
-        'Purchased 1 Joker Swap coupon'
+      await conn.beginTransaction();
+
+      const [ticketResult] = await conn.query(
+        'INSERT INTO weekly_tickets (user_email, user_name, subject, status, admin_unread, user_unread) VALUES (?, ?, ?, ?, 1, 0)',
+        [userEmail, userName, subject, 'open']
+      );
+      const ticketId = ticketResult.insertId;
+
+      await conn.query(
+        'INSERT INTO weekly_ticket_replies (ticket_id, sender_email, sender_name, message) VALUES (?, ?, ?, ?)',
+        [ticketId, userEmail, userName, message]
       );
 
-      // 2. Ha a pontlevonás sikeres volt, jóváírjuk a cserét a felhasználónak
-      await pool.query(
-        'UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE email = ?',
-        [userEmail]
-      );
-
-      // Lekérjük a frissített csere egyenleget a válaszhoz
-      const [updatedUser] = await pool.query('SELECT swap_balance FROM photo_users WHERE email = ?', [userEmail]);
-
-      res.json({
-        success: true,
-        message: 'A Joker csere kupon sikeresen jóváírva a tárcádban! 🃏',
-        newPointsBalance: txResult.newBalance,
-        newSwapBalance: updatedUser[0]?.swap_balance || 0
-      });
-
+      await conn.commit();
+      res.json({ success: true, ticketId });
     } catch (err) {
-      console.error("❌ Hiba a csere vásárlásakor:", err.message);
-      // Ha a PointsService dobta a hibát (pl. nincs elég pont), azt kulturáltan visszaadjuk a frontendnek
-      res.status(400).json({ error: err.message || 'Sikertelen vásárlás.' });
+      await conn.rollback();
+      res.status(500).json({ error: err.message });
+    } finally {
+      conn.release();
     }
   });
 
   // ====================================================================
-  // 👑 2. 7 NAPOS PRÉMIUM TAGSÁG VÁSÁRLÁSA PONTÉRT
+  // 2. Hibajegyek listázása (VÉDETT)
   // ====================================================================
-  app.post('/api/store/buy-premium', requireAuth, async (req, res) => {
-    const userEmail = req.user.email;
-    const cost = -PointsService.CONSTANTS.COST_PREMIUM_7DAYS; // -200 pont
+  app.get('/api/tickets', requireAuth, async (req, res) => {
+    try { 
+      if (req.user.isAdmin) {
+        const [rows] = await pool.query(
+          'SELECT * FROM weekly_tickets ORDER BY updated_at DESC'
+        );
+        return res.json(rows);
+      }
 
-    try {
-      // 1. Pontlevonás és könyvelés
-      const txResult = await PointsService.handleTransaction(
-        pool,
-        userEmail,
-        cost,
-        'buy_premium',
-        null,
-        '7 napos Prémium tagság vásárlása',
-        'Purchased 7 days of Premium membership'
-      );
-
-      // 2. Prémium idő meghosszabbítása (Ha már aktív, hozzáadja, ha lejárt vagy ingyenes, NOW()-tól indítja)
-      await pool.query(
-        `UPDATE photo_users 
-         SET is_premium = 1, 
-             premium_level = 1, 
-             premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > NOW(), premium_until, NOW()), INTERVAL 7 DAY) 
-         WHERE email = ?`,
-        [userEmail]
-      );
-
-      // Lekérjük a friss dátumot a frontendnek
-      const [updatedUser] = await pool.query('SELECT premium_until FROM photo_users WHERE email = ?', [userEmail]);
-
-      res.json({
-        success: true,
-        message: 'Sikeres prémium előfizetés! Köszönjük, hogy támogatod a közösséget! 👑',
-        newPointsBalance: txResult.newBalance,
-        premiumUntil: updatedUser[0]?.premium_until
-      });
-
-    } catch (err) {
-      console.error("❌ Hiba a prémium vásárlásakor:", err.message);
-      res.status(400).json({ error: err.message || 'Sikertelen vásárlás.' });
-    }
-  });
-
-  // ====================================================================
-  // 🪙 🎯 ÚJ: EXTRA KVÍZ KUPON VÁSÁRLÁSA 5 PONTÉRT
-  // ====================================================================
-  app.post('/api/quiz/buy-token', requireAuth, async (req, res) => {
-    try {
-      const cost = -5; // Szigorúan 5 pont levonás
-
-      // Tranzakcióbiztos könyvelés a központi bankmotoroddal
-      const txResult = await PointsService.handleTransaction(
-        pool,
-        req.user.email,
-        cost,
-        'buy_quiz_token',
-        null,
-        '1 db Extra Kvíz Kupon vásárlása',
-        'Purchased 1 Extra Quiz Coupon'
-      );
-
-      // Jóváírjuk a Kvíz Kupon egyenleget a felhasználónál
-      await pool.query(
-        'UPDATE photo_users SET quiz_balance = quiz_balance + 1 WHERE email = ?',
+      const [rows] = await pool.query(
+        'SELECT * FROM weekly_tickets WHERE user_email = ? ORDER BY updated_at DESC', 
         [req.user.email]
-      );
-
-      const [userRows] = await pool.query('SELECT quiz_balance FROM photo_users WHERE email = ?', [req.user.email]);
-
-      res.json({
-        success: true,
-        newPointsBalance: txResult.newBalance,
-        newQuizBalance: userRows[0]?.quiz_balance || 0
-      });
+      ); 
+      res.json(rows); 
     } catch (err) {
-      console.error("❌ Hiba a kvízkupon vásárlásakor:", err.message);
-      res.status(400).json({ error: err.message || 'Sikertelen kupon vásárlás.' });
+      console.error("❌ Adatbázis hiba a ticketek listázásakor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt a jegyek betöltésekor.' });
     }
   });
-  
+
   // ====================================================================
-  // 👑 4. ADMINISZTRÁTORI PONTKORREKCIÓ (GOD MODE)
+  // 🔔 Olvasatlan ticketek száma a Headerhez (VÉDETT)
   // ====================================================================
-  app.post('/api/admin/adjust-points', requireAuth, async (req, res) => {
-    // 🔒 SZIGORÚ BIZTONSÁGI PAJZS: Csak a hitelesített főadminisztrátor léphet be!
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Ez a művelet kizárólag a Főadminisztrátornak engedélyezett.' });
-    }
-
-    const { targetEmail, amount, reasonHu, reasonEn } = req.body;
-
-    // Alapvető adatellenőrzések
-    if (!targetEmail || amount === undefined) {
-      return res.status(400).json({ error: 'Hiányzó paraméterek! A célszemély email címe és a pontmennyiség megadása kötelező.' });
-    }
-
-    const pointsAmount = Number(amount);
-    if (isNaN(pointsAmount) || pointsAmount === 0) {
-      return res.status(400).json({ error: 'Érvénytelen pontmennyiség! Nullától eltérő számot kell megadnod.' });
-    }
-
+  app.get('/api/tickets/unread-count', requireAuth, async (req, res) => {
     try {
-      // A központi bankmotorunk (PointsService) segítségével tranzakcióbiztosan végrehajtjuk
-      const txResult = await PointsService.handleTransaction(
-        pool,
-        targetEmail.trim().toLowerCase(), // Szabványosítjuk az emailt
-        pointsAmount,
-        'admin_adjustment',
-        null, // Nincs közvetlen entitás ID
-        reasonHu?.trim() || 'Adminisztrátori pontmódosítás',
-        reasonEn?.trim() || 'Admin point adjustment'
-      );
-
-      res.json({
-        success: true,
-        message: `👑 Pontmódosítás sikeres! ${targetEmail} számlájára ${pointsAmount > 0 ? '+' : ''}${pointsAmount} pont felírva.`,
-        newPointsBalance: txResult.newBalance
-      });
-
+      if (req.user.isAdmin) {
+        const [rows] = await pool.query("SELECT COUNT(*) as count FROM weekly_tickets WHERE admin_unread = 1 AND status != 'closed'");
+        return res.json({ count: rows[0].count });
+      } else {
+        const [rows] = await pool.query("SELECT COUNT(*) as count FROM weekly_tickets WHERE user_email = ? AND user_unread = 1", [req.user.email]);
+        return res.json({ count: rows[0].count });
+      }
     } catch (err) {
-      console.error("❌ Hiba az adminisztrátori pontmódosítás során:", err.message);
-      // Ha a PointsService dob hibát (pl. lecsúszna a user egyenlege nulla alá a levonástól), azt kulturáltan továbbítjuk
-      res.status(400).json({ error: err.message || 'Sikertelen adminisztrátori művelet.' });
+      res.status(500).json({ error: err.message });
     }
   });
+
   // ====================================================================
-  // 👑 UTILS A: ÖSSZES USER EGYSZERŰSÍTETT PONTLISTÁJA (CSAK ADMIN)
+  // 3. Chat üzenetek lekérése (VÉDETT)
   // ====================================================================
-  app.get('/api/admin/users-points', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
-    }
+  app.get('/api/tickets/:id/replies', requireAuth, async (req, res) => {
+    const ticketId = req.params.id;
+
     try {
-      // Lekérjük az összes felhasználót a pontjaikkal együtt, a leggazdagabbal kezdve
-      const [rows] = await pool.query(
-        'SELECT email, name, points_balance, avatar_url FROM photo_users ORDER BY points_balance DESC'
-      );
+      const [ticket] = await pool.query('SELECT user_email FROM weekly_tickets WHERE id = ?', [ticketId]);
+      if (ticket.length === 0) return res.status(404).json({ error: 'A keresett hibajegy nem létezik!' });
+
+      if (ticket[0].user_email !== req.user.email && !req.user.isAdmin) {
+        return res.status(403).json({ error: 'Hozzáférés megtagadva! Ez nem a te hibajegyed.' });
+      }
+
+      if (req.user.isAdmin) {
+        await pool.query('UPDATE weekly_tickets SET admin_unread = 0 WHERE id = ?', [ticketId]);
+      } else {
+        await pool.query('UPDATE weekly_tickets SET user_unread = 0 WHERE id = ?', [ticketId]);
+      }
+
+      const [rows] = await pool.query('SELECT * FROM weekly_ticket_replies WHERE ticket_id = ? ORDER BY created_at ASC', [ticketId]);
       res.json(rows);
     } catch (err) {
-      console.error("Hiba az admin user-pontok lekérésekor:", err.message);
-      res.status(500).json({ error: 'Adatbázis hiba történt.' });
+      res.status(500).json({ error: err.message });
     }
   });
 
   // ====================================================================
-  // 👑 UTILS B: EGY ADOTT USER TRANZAKCIÓS NAPLÓJA (CSAK ADMIN)
+  // 4. Új válasz küldése (VÉDETT)
   // ====================================================================
-  app.get('/api/admin/user-ledger', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
-    }
-    const { targetEmail } = req.query;
-    if (!targetEmail) {
-      return res.status(400).json({ error: 'A célszemély email címe kötelező!' });
-    }
+  app.post('/api/tickets/:id/replies', requireAuth, async (req, res) => {
+    const { message } = req.body;
+    const ticketId = req.params.id;
+    if (!message?.trim()) return res.status(400).json({ error: 'Üres üzenet!' });
+
     try {
-      // Lekérjük a kiválasztott felhasználó teljes pontmúltját időrendben visszafelé
-      const [rows] = await pool.query(
-        'SELECT *, DATE_FORMAT(created_at, "%Y-%m-%d %H:%i") as date FROM photo_points_ledger WHERE user_email = ? ORDER BY created_at DESC',
-        [targetEmail.trim().toLowerCase()]
+      const [ticketRows] = await pool.query('SELECT user_email, status FROM weekly_tickets WHERE id = ?', [ticketId]);
+      if (ticketRows.length === 0) return res.status(404).json({ error: 'A jegy nem található.' });
+
+      const ticket = ticketRows[0];
+      if (ticket.user_email !== req.user.email && !req.user.isAdmin) {
+        return res.status(403).json({ error: 'Nincs jogosultságod ehhez a jegyhez!' });
+      }
+
+      await conn.query(
+        'INSERT INTO weekly_ticket_replies (ticket_id, sender_email, sender_name, message) VALUES (?, ?, ?, ?)',
+        [ticketId, req.user.email, req.user.name, message.trim()]
       );
-      res.json(rows);
+
+      if (req.user.isAdmin) {
+        await pool.query('UPDATE weekly_tickets SET user_unread = 1, status = IF(status = "open", "in_progress", status) WHERE id = ?', [ticketId]);
+      } else {
+        await pool.query('UPDATE weekly_tickets SET admin_unread = 1 WHERE id = ?', [ticketId]);
+      }
+
+      res.json({ success: true });
     } catch (err) {
-      console.error("Hiba az admin ledger lekérésekor:", err.message);
-      res.status(500).json({ error: 'Adatbázis hiba történt.' });
+      console.error(err);
+      res.status(500).json({ error: err.message });
     }
   });
 
   // ====================================================================
-  // 📜 3. FELHASZNÁLÓ SAJÁT TRANZAKCIÓS NAPLÓJÁNAK LEKÉRÉSE
+  // 5. Státusz frissítése (VÉDETT)
   // ====================================================================
-  app.get('/api/store/my-ledger', requireAuth, async (req, res) => {
+  app.put('/api/tickets/:id/status', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak az adminisztrátor módosíthatja a státuszt!' });
     try {
-      const [rows] = await pool.query(
-        `SELECT id, points_changed, balance_after, reason_key, description_hu, description_en,
-                DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as date
-         FROM photo_points_ledger 
-         WHERE user_email = ? 
-         ORDER BY created_at DESC LIMIT 50`,
-        [req.user.email]
-      );
-      res.json(rows);
-    } catch (err) {
-      res.status(500).json({ error: 'Nem sikerült betölteni a ponttörténetet.' });
-    }
+      await pool.query('UPDATE weekly_tickets SET status = ? WHERE id = ?', [req.body.status, req.params.id]);
+      res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
 };
