@@ -48,7 +48,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   } catch (e) {}
 
-  useEffect(() => {
+ useEffect(() => {
     if (typeof window !== 'undefined') {
       document.documentElement.style.backgroundColor = 'var(--bg-main)';
       document.body.style.backgroundColor = 'var(--bg-main)';
@@ -62,7 +62,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         clientId: '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com',
         serverClientId: '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com',
         scopes: ['profile', 'email'],
-        grantOfflineAccess: true,
+        grantOfflineAccess: false,
       }).catch(err => console.warn("GoogleAuth init warning:", err));
     }
   }, [theme]);
@@ -80,7 +80,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       }
     } catch (error: any) {
       console.error("Natív Google belépési hiba:", error);
-      // Részletes hibakiírás közvetlenül a telefon képernyőjére:
       const errorDetails = JSON.stringify(error, Object.getOwnPropertyNames(error));
       alert(`PONTOS HIBAKÓD:\n${errorDetails}`);
     } finally {
