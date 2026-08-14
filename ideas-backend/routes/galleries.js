@@ -1,31 +1,8 @@
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// 🎯 KÖZVETLENÜL A FRISSÍTETT KÖZPONTI AUTH MIDDLEWARE-T BEHÚZZUK:
+const { requireAuth } = require('../authMiddleware');
+
 const PointsService = require('../PointsService');
 const crypto = require('crypto');
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
-
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Token hiányzik!' });
-    }
-    const token = authHeader.split(' ')[1];
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen token.' });
-    }
-    req.user = { email: payload.email, name: payload.name, isAdmin: payload.email === ADMIN_EMAIL };
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Érvénytelen munkamenet!' });
-  }
-}
 
 module.exports = function(app, pool) {
 
@@ -119,7 +96,6 @@ module.exports = function(app, pool) {
 
         const isExpired = gal.expires_at ? (new Date(gal.expires_at) < now) : false;
 
-        // Ha lejárt ÉS nem a tulajdonos/admin nézi, elrejtjük!
         if (isExpired && !isOwner) {
           return null;
         }
