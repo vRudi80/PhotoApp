@@ -19,10 +19,14 @@ jobs:
           node-version: 20
 
       - name: Install Dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          cd frontend
+          npm install --legacy-peer-deps
 
       - name: Build React Web App
-        run: npx vite build
+        run: |
+          cd frontend
+          npx vite build
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -32,13 +36,14 @@ jobs:
 
       - name: Initialize Capacitor Android
         run: |
+          cd frontend
           npx cap add android || true
           npx cap copy android
           npx cap update android
 
       - name: Build Android APK
         run: |
-          cd android
+          cd frontend/android
           chmod +x gradlew
           ./gradlew assembleDebug
 
@@ -46,4 +51,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PhotAwesome-Android-App
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
