@@ -60,6 +60,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     if (nativeCheck) {
       GoogleAuth.initialize({
         clientId: '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com',
+        serverClientId: '197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com',
         scopes: ['profile', 'email'],
         grantOfflineAccess: true,
       }).catch(err => console.warn("GoogleAuth init warning:", err));
@@ -70,23 +71,22 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     try {
       setIsNativeLoggingIn(true);
       const googleUser = await GoogleAuth.signIn();
-      const idToken = googleUser.authentication.idToken || (googleUser as any).idToken;
+      const idToken = googleUser.authentication?.idToken || (googleUser as any).idToken;
       
       if (idToken) {
         onLoginSuccess(idToken);
       } else {
-        alert("Nem sikerült beolvasni a Google azonosító tokent.");
+        alert("Nem érkezett azonosító token: " + JSON.stringify(googleUser));
       }
     } catch (error: any) {
       console.error("Natív Google belépési hiba:", error);
-      if (error?.message && !error.message.includes('canceled') && !error.message.includes('12501')) {
-        alert(`Google belépési hiba: ${error.message || 'Ismeretlen hiba'}`);
-      }
+      // Részletes hibakiírás közvetlenül a telefon képernyőjére:
+      const errorDetails = JSON.stringify(error, Object.getOwnPropertyNames(error));
+      alert(`PONTOS HIBAKÓD:\n${errorDetails}`);
     } finally {
       setIsNativeLoggingIn(false);
     }
   };
-
   const currentLogo = lang === 'en' ? logoEn : logoHu;
 
   const features = [
