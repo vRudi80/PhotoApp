@@ -16,13 +16,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Build React Web App
-        run: npm run build
+        run: npx vite build
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
