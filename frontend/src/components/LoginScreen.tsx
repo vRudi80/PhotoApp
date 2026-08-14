@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@capacitor-community/google-auth';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 // Professzionális Lucide ikonok importálása
 import { 
