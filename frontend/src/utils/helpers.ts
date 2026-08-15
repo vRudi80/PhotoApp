@@ -54,20 +54,41 @@ export function getFlagImageUrl(countryCode: string): string {
   return `https://flagcdn.com/w40/${cleanCode.toLowerCase()}.png`;
 }
 
-// 🎯 JAVÍTVA: Visszatértünk a golyóálló, opcionális paraméteres Google Drive logikához!
-export function getImageUrl(driveFileId?: string | null, fileUrl?: string): string {
-  // 1. Elsőbbséget élvez a Google Drive ID (ha van, azonnal generáljuk a képet, zéró átalakítással)
-  if (driveFileId) {
-    return `https://lh3.googleusercontent.com/d/${driveFileId}`;
+// 🎯 Golyóálló, objektumot ÉS két külön paramétert is kezelő kép URL generáló
+export function getImageUrl(driveFileIdOrPhoto?: any, fileUrl?: string): string {
+  let driveId: string | null = null;
+  let directUrl: string | null = null;
+
+  // 1. Kezeli, ha a teljes photo objektumot adod át: getImageUrl(photo)
+  if (typeof driveFileIdOrPhoto === 'object' && driveFileIdOrPhoto !== null) {
+    driveId = driveFileIdOrPhoto.drive_file_id;
+    directUrl = driveFileIdOrPhoto.file_url || driveFileIdOrPhoto.url;
+  } else {
+    // 2. Kezeli, ha két külön paramétert adsz át: getImageUrl(driveFileId, fileUrl)
+    driveId = driveFileIdOrPhoto;
+    directUrl = fileUrl || null;
   }
 
-  // 2. Ha Cloudinary link van, azt optimalizálhatjuk (ha nincs benne, átugorja)
-  if (fileUrl && fileUrl.includes('cloudinary.com')) {
-    return fileUrl.replace('/upload/', '/upload/f_auto,q_auto,w_1000,c_limit/');
+  // 3. Kiszűri a "migrated", "null", "undefined" és egyéb hibás Drive ID-kat
+  if (
+    driveId &&
+    typeof driveId === 'string' &&
+    driveId !== 'null' &&
+    driveId !== 'undefined' &&
+    driveId !== 'migrated' &&
+    driveId.trim().length > 10 &&
+    !driveId.startsWith('http')
+  ) {
+    return `https://lh3.googleusercontent.com/d/${driveId.trim()}`;
   }
 
-  // 3. Fallback: Ha nincs kép, a stabil és működő placehold.co-t hívjuk a halott domain helyett
-  return fileUrl || 'https://placehold.co/400x300/1e293b/64748b?text=Kép+nem+található';
+  // 4. Ha Cloudinary link van (migrált képek), optimalizálva adja vissza
+  if (directUrl && directUrl.includes('cloudinary.com')) {
+    return directUrl.replace('/upload/', '/upload/f_auto,q_auto,w_1000,c_limit/');
+  }
+
+  // 5. Fallback a közvetlen linkre vagy a placeholderre
+  return directUrl || 'https://placehold.co/400x300/1e293b/64748b?text=Kép+nem+található';
 }
 
 // YouTube URL átalakító
