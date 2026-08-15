@@ -3,17 +3,12 @@ import { getImageUrl } from '../../../utils/helpers';
 import { toPng } from 'html-to-image'; 
 import { BACKEND_URL, ADMIN_EMAIL } from '../../../utils/constants';
 
-// Nyelvi kontextus betöltése
 import { useLanguage } from '../../../context/LanguageContext';
-
-// Téma környezet betöltése
 import { useTheme } from '../../../context/ThemeContext';
 
-// Mindkét modál behozatala
 import ShareCardModal from '../ShareCardModal';
 import ArchiveDetailModal from '../ArchiveDetailModal';
 
-// Letisztult Lucide ikonok importálása
 import { 
   ArrowLeft, 
   Download, 
@@ -113,7 +108,6 @@ export default function PastArchive({
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
   const isAdminUser = user?.email === ADMIN_EMAIL;
 
-  // 🎯 LEOKTATOTT PROFILKÉP KINYERÉS ELEMZÉSE SZAJT BELSŐ ADATOKBÓL (ADMIN VÉGPONT-HÍVÁS NÉLKÜL)
   const getProfileAvatar = (entry: any) => {
     if (entry && entry.avatar_url) return entry.avatar_url;
     if (user && user.email && (entry?.user_email === user.email || entry?.user_name === user.name)) {
@@ -218,6 +212,18 @@ export default function PastArchive({
     return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4); 
   }, [singlePhotosRankedList]);
 
+  // 🎯 BIZTONSÁGOS KÖZVETLEN FIÁJL-LETÖLTÉS FALLBACK
+  const triggerDirectFileDownload = (blob: Blob, fileName: string) => {
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a'); 
+    link.download = fileName;
+    link.href = blobUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+  };
+
   const handleGenerateAdminPoster = async () => {
     if (!topThreeWinners.length) return alert("Nincs elegendő dobogós adat a plakát elkészítéséhez!");
     setIsAdminGeneratingPoster(true);
@@ -277,21 +283,23 @@ export default function PastArchive({
           const fileName = `Arena_Results_${(currentTopicObj?.title || 'Challenge').replace(/\s+/g, '_')}_2026.png`;
           const file = new File([blob], fileName, { type: 'image/png' });
 
+          // 🎯 MEGOSZTÁS PRÓBÁLÁSA CATCH BLOKKAL - HA ELUTASÍTJA A BÖNGÉSZŐ, ISMÉTELTEN LETÖLTI!
+          let shareSuccess = false;
           if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: 'PhotAwesome Eredmény Plakát',
-              text: `Hivatalos eredmények: ${currentTopicObj?.title}`
-            });
-          } else {
-            const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a'); 
-            link.download = fileName;
-            link.href = blobUrl;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+            try {
+              await navigator.share({
+                files: [file],
+                title: 'PhotAwesome Eredmény Plakát',
+                text: `Hivatalos eredmények: ${currentTopicObj?.title}`
+              });
+              shareSuccess = true;
+            } catch (shareErr: any) {
+              console.warn("Megosztási ablakot elutasította vagy visszadobta a böngésző, váltás letöltésre:", shareErr);
+            }
+          }
+
+          if (!shareSuccess) {
+            triggerDirectFileDownload(blob, fileName);
           }
         } catch (err: any) {
           console.error("❌ Plakát kimentési hiba:", err);
@@ -300,7 +308,7 @@ export default function PastArchive({
           setIsAdminGeneratingPoster(false);
           setAdminPosterData(null);
         }
-      }, 1000);
+      }, 800);
 
     } catch (error: any) {
       console.error("❌ Előkészítési hiba:", error);
@@ -328,7 +336,9 @@ export default function PastArchive({
       await toPng(node, { cacheBust: true, pixelRatio: 1 });
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0, pixelRatio: 1 });
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `Arena_Award_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
+      const fileName = `Arena_Trophy_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
       const getOrdinalStr = (rankNum: number) => {
         if (lang === 'hu') return `${rankNum}.`;
         const m = rankNum % 10, n = rankNum % 100;
@@ -337,19 +347,23 @@ export default function PastArchive({
         if (m === 3 && n !== 13) return `${rankNum}rd`;
         return `${rankNum}th`;
       };
+
       const shareTextCompiled = t('msgShareText').replace('{rank}', lang === 'en' ? getOrdinalStr(activeShareData.rank) : String(activeShareData.rank)).replace('{title}', activeShareData.topic_title);
+      
+      let shareSuccess = false;
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: t('msgShareTitle'), text: shareTextCompiled });
-      } else {
-        const blobUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a'); 
-        link.download = `Arena_Trophy_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`;
-        link.href = blobUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        try {
+          await navigator.share({ files: [file], title: t('msgShareTitle'), text: shareTextCompiled });
+          shareSuccess = true;
+        } catch (shareErr) {
+          console.warn("Megosztás elutasítva, fallback letöltésre.");
+        }
       }
+
+      if (!shareSuccess) {
+        triggerDirectFileDownload(blob, fileName);
+      }
+
       setActiveShareData(null);
     } catch (e) {
       alert(t('msgGenerateImageError', 'Hiba történt a trófeakártya generálása közben.'));
@@ -389,7 +403,7 @@ export default function PastArchive({
                 </div>
 
                 <div style={{ height: '160px', backgroundColor: '#090d16', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={topicRow.cover_url || `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/></svg>`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleLocalImageError} />
+                  <img src={topicRow.cover_url || `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/></svg>`} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleLocalImageError} />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: 'var(--bg-main)', borderTop: '1px solid var(--border-main)', textAlign: 'center', fontSize: '0.75rem', padding: '10px 4px', color: 'var(--text-muted)' }}>
@@ -453,13 +467,14 @@ export default function PastArchive({
                   {topThreeWinners[0] ? (
                     <div style={{ width: '100%' }}>
                       <div style={{ width: '100%', height: '300px', background: '#090d16', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', cursor: 'zoom-in', border: '1px solid var(--border-main)' }} onClick={() => setActiveArchiveEntry(topThreeWinners[0])}>
-                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleLocalImageError} />
+                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" referrerPolicy="no-referrer" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleLocalImageError} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left' }}>
                           <img 
                             src={getProfileAvatar(topThreeWinners[0])} 
                             alt="" 
+                            referrerPolicy="no-referrer"
                             style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
                           />
@@ -473,7 +488,6 @@ export default function PastArchive({
                         </div>
                       </div>
 
-                      {/* Mentési és letöltési gombsor */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
                         <button
                           onClick={() => setActiveShareData({
@@ -516,6 +530,7 @@ export default function PastArchive({
                   <img 
                     src={currentTopicObj?.master_avatar_url || silhouetteAvatar} 
                     alt="Master" 
+                    referrerPolicy="no-referrer"
                     style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
                   />
@@ -585,7 +600,7 @@ export default function PastArchive({
                              idx === 2 ? <Trophy size={12} color="#b45309" /> :
                              <span>#{idx + 1}</span>}
                           </div>
-                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', margin: '0 12px', backgroundColor: '#000', border: '1px solid var(--border-main)' }} onError={handleLocalImageError} />
+                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" referrerPolicy="no-referrer" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', margin: '0 12px', backgroundColor: '#000', border: '1px solid var(--border-main)' }} onError={handleLocalImageError} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <strong style={{ color: 'var(--text-title)', display: 'block', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.user_name}</strong>
                             <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>
@@ -608,7 +623,7 @@ export default function PastArchive({
                     guruTopPicksList.map(entry => (
                       <div key={entry.id} onClick={() => setActiveArchiveEntry(entry)} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', padding: '10px 16px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', cursor: 'pointer', transition: 'all 0.1s' }} className="hof-row-card">
                         <Sparkles size={12} color="#a78bfa" style={{ width: '22px', flexShrink: 0 }} />
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', margin: '0 12px', backgroundColor: '#000', border: '1px solid var(--border-main)' }} onError={handleLocalImageError} />
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" referrerPolicy="no-referrer" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', margin: '0 12px', backgroundColor: '#000', border: '1px solid var(--border-main)' }} onError={handleLocalImageError} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <strong style={{ color: 'var(--text-title)', display: 'block', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.user_name}</strong>
                           <span style={{ color: '#a78bfa', fontSize: '0.75rem', display: 'block', fontWeight: '500' }}>{t('archiveHighlightedByMaster', 'Képmester Kiemelés')}</span>
@@ -681,7 +696,7 @@ export default function PastArchive({
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[1].base64Url} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[1].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
                     <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
@@ -698,7 +713,7 @@ export default function PastArchive({
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
                   <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
                   <div style={{ width: '290px', height: '290px', borderRadius: '24px', overflow: 'hidden', border: '8px solid #fbbf24', boxShadow: '0 25px 60px rgba(251,191,36,0.3)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[0].base64Url} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[0].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
                     <div style={{ color: '#0f172a', fontSize: '28px', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '64px' }}>{adminPosterData.entries[0].user_name}</div>
@@ -714,7 +729,7 @@ export default function PastArchive({
               {adminPosterData.entries[2] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[2].base64Url} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[2].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
                     <div style={{ color: '#ffedd5', fontSize: '24px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
