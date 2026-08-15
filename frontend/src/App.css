@@ -1,3 +1,20 @@
+/* ── 🎯 GLOBÁLIS KERET- ÉS TÚLFOLYÁS VÉDELEM ── */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* ── 🌑 ALAPÉRTELMEZETT SÖTÉT MÓD VÁLTOZÓI ── */
 :root {
   --bg-main: #0f172a;       /* Dashboard mély háttér */
@@ -116,7 +133,7 @@ body {
 .hamburger-btn { background: none; border: none; color: var(--text-title); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .header-nav-container { display: flex; flex: 1; justify-content: space-between; align-items: center; }
 
-/* ── 🎯 EGYSÉGESÍTETT, GOLYÓÁLLÓ MOBIL RENDŐRSÉG (max-width: 1059px vagy 768px felbontásra igazítva) ── */
+/* ── 🎯 EGYSÉGESÍTETT, GOLYÓÁLLÓ MOBIL RENDŐRSÉG ── */
 @media (max-width: 1059px) {
   .app-header {
     flex-direction: column;
