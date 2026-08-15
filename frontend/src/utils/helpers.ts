@@ -13,7 +13,7 @@ const iso3ToIso2: Record<string, string> = {
   "ISL":"IS","IND":"IN","IDN":"ID","IRN":"IR","IRQ":"IQ","IRL":"IE","IMN":"IM","ISR":"IL","ITA":"IT","JAM":"JM",
   "JPN":"JP","JEY":"JE","JOR":"JO","KAZ":"KZ","KEN":"KE","KIR":"KI","PRK":"KP","KOR":"KR","KWT":"KW","KGZ":"KG",
   "LAO":"LA","LVA":"LV","LBN":"LB","LSO":"LS","LBR":"LR","LBY":"LY","LIE":"LI","LTU":"LT","LUX":"LU","MAC":"MO",
-  "MDG":"MG","MWI":"MW","MYS":"MY","MDV":"MV","MLI":"ML","MLT":"MT","MHL":"MH","MTQ":"MQ","MRT":"MR","MUS":"MU",
+  "MDG":"MG","MWI":"MW","MYS":"MY","MDV":"MV","MLI":"ML","MLT":"MT","MHL":"MH","MRT":"MR","MUS":"MU",
   "MYT":"YT","MEX":"MX","FSM":"FM","MDA":"MD","MCO":"MC","MNG":"MN","MNE":"ME","MSR":"MS","MAR":"MA","MOZ":"MZ",
   "MMR":"MM","NAM":"NA","NRU":"NR","NPL":"NP","NLD":"NL","NCL":"NC","NZL":"NZ","NIC":"NI","NER":"NE","NGA":"NG",
   "NIU":"NU","NFK":"NF","MNP":"MP","NOR":"NO","OMN":"OM","PAK":"PK","PLW":"PW","PSE":"PS","PAN":"PA","PNG":"PG",
@@ -27,7 +27,6 @@ const iso3ToIso2: Record<string, string> = {
   "VGB":"VG","VIR":"VI","WLF":"WF","ESH":"EH","YEM":"YE","ZMB":"ZM","ZWE":"ZW"
 };
 
-// Megtartjuk a régit is, ha valahol kellene
 export function getFlagEmoji(countryCode: string) {
   if (!countryCode) return '🏳️';
   let cleanCode = countryCode.trim().toUpperCase();
@@ -43,7 +42,6 @@ export function getFlagEmoji(countryCode: string) {
   }
 }
 
-// Golyóálló kép alapú zászló URL generáló (Windows barát!)
 export function getFlagImageUrl(countryCode: string): string {
   if (!countryCode) return '';
   let cleanCode = countryCode.trim().toUpperCase();
@@ -54,22 +52,35 @@ export function getFlagImageUrl(countryCode: string): string {
   return `https://flagcdn.com/w40/${cleanCode.toLowerCase()}.png`;
 }
 
-// 🎯 Golyóálló, objektumot ÉS két külön paramétert is kezelő kép URL generáló
+// 🎯 Okos kép URL generáló: Kinyeri a Drive ID-t a file_url mezőből is, ha a drive_file_id NULL
 export function getImageUrl(driveFileIdOrPhoto?: any, fileUrl?: string): string {
   let driveId: string | null = null;
   let directUrl: string | null = null;
 
-  // 1. Kezeli, ha a teljes photo objektumot adod át: getImageUrl(photo)
+  // 1. Paraméterek feldolgozása (objektum vagy külön paraméterek)
   if (typeof driveFileIdOrPhoto === 'object' && driveFileIdOrPhoto !== null) {
-    driveId = driveFileIdOrPhoto.drive_file_id;
-    directUrl = driveFileIdOrPhoto.file_url || driveFileIdOrPhoto.url;
+    driveId = driveFileIdOrPhoto.drive_file_id || null;
+    directUrl = driveFileIdOrPhoto.file_url || driveFileIdOrPhoto.url || null;
   } else {
-    // 2. Kezeli, ha két külön paramétert adsz át: getImageUrl(driveFileId, fileUrl)
-    driveId = driveFileIdOrPhoto;
+    driveId = driveFileIdOrPhoto || null;
     directUrl = fileUrl || null;
   }
 
-  // 3. Kiszűri a "migrated", "null", "undefined" és egyéb hibás Drive ID-kat
+  // 2. Ha nincs drive_file_id, de a file_url Google Drive hivatkozást tartalmaz (/file/d/ID, ?id=ID, uc?id=ID)
+  if ((!driveId || driveId === 'migrated' || driveId === 'null') && directUrl) {
+    if (directUrl.includes('drive.google.com')) {
+      const matchFileD = directUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      const matchQueryId = directUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+
+      if (matchFileD && matchFileD[1]) {
+        driveId = matchFileD[1];
+      } else if (matchQueryId && matchQueryId[1]) {
+        driveId = matchQueryId[1];
+      }
+    }
+  }
+
+  // 3. Érvényes Google Drive azonosító esetén közvetlen lh3 képlink képzése
   if (
     driveId &&
     typeof driveId === 'string' &&
@@ -82,16 +93,15 @@ export function getImageUrl(driveFileIdOrPhoto?: any, fileUrl?: string): string 
     return `https://lh3.googleusercontent.com/d/${driveId.trim()}`;
   }
 
-  // 4. Ha Cloudinary link van (migrált képek), optimalizálva adja vissza
+  // 4. Cloudinary képek optimalizálása
   if (directUrl && directUrl.includes('cloudinary.com')) {
     return directUrl.replace('/upload/', '/upload/f_auto,q_auto,w_1000,c_limit/');
   }
 
-  // 5. Fallback a közvetlen linkre vagy a placeholderre
-  return directUrl || 'https://placehold.co/400x300/1e293b/64748b?text=Kép+nem+található';
+  // 5. Egyéb közvetlen képlinkek (pl. lh3.googleusercontent.com, OneDrive) vagy hiányzó kép esetén tartalék
+  return directUrl || 'https://placehold.co/400x300/1e293b/64748b?text=K%C3%A9p+nem+tal%C3%A1lhat%C3%B3';
 }
 
-// YouTube URL átalakító
 export function getYouTubeEmbed(url: string) {
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
   return match ? `https://www.youtube.com/embed/${match[1]}` : url;
