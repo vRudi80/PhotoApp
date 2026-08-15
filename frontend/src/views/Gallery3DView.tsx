@@ -87,7 +87,7 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 
 const resolvePhotoUrl = (photo: any) => {
   if (!photo) return '';
-  return getImageUrl(photo.drive_file_id, photo.file_url) || photo.file_url || '';
+  return getImageUrl(photo) || photo.file_url || photo.url || '';
 };
 
 const getPhotoKey = (p: any) => {
@@ -184,7 +184,6 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
     let currentTexture: THREE.Texture | null = null;
 
     const loader = new THREE.TextureLoader();
-    loader.setCrossOrigin('anonymous');
 
     loader.load(url, (loaded) => {
       if (!isMounted) {
@@ -481,7 +480,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   }, [userEmail]);
 
-  // 🎯 CSAK PRÉMIUM TAGOKNÁL KÉRJÜK LE A PORTFÓLIÓT, HOGY SIMA USEREKNÉL NE VÁLTSÓN KI 403-AT!
   const loadData = async () => {
     setLoading(true);
     try {
@@ -974,7 +972,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
                     <div key={gal.id || Math.random()} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                       
                       <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
-                        <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         
                         <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '6px' }}>
                           <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1071,7 +1069,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
                   return (
                     <div key={gal.id} style={{ background: 'var(--bg-card)', border: '2px solid #ef4444', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: 0.95 }}>
                       <div style={{ height: '160px', background: '#090d16', position: 'relative' }}>
-                        <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(0.6)' }} />
+                        <img src={coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(0.6)' }} />
                         <div style={{ position: 'absolute', top: '10px', left: '10px', background: '#ef4444', color: 'white', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                           🔴 LEJÁRT
                         </div>
@@ -1279,7 +1277,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* PUBLIKÁLÁS GOMB ÉS VEZÉRLŐSÁV A SZERKESZTŐ TETEJÉN */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '16px 20px', borderRadius: '10px', border: '1px solid var(--border-main)', flexWrap: 'wrap', gap: '15px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <button 
@@ -1365,7 +1362,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
             </div>
           </div>
 
-          {/* KÖZVETLEN FELTÖLTÉS A PORTFÓLIÓBA */}
           <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(56,189,248,0.3)' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <UploadCloud size={20} /> Új fotó feltöltése a Portfóliódba közvetlenül innen
@@ -1416,12 +1412,11 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
             {inlineUploadPreview && (
               <div style={{ marginTop: '12px', textAlign: 'left' }}>
-                <img src={inlineUploadPreview} alt="" style={{ height: '80px', borderRadius: '6px', border: '1px solid var(--border-main)' }} />
+                <img src={inlineUploadPreview} alt="" referrerPolicy="no-referrer" style={{ height: '80px', borderRadius: '6px', border: '1px solid var(--border-main)' }} />
               </div>
             )}
           </div>
 
-          {/* PORTFÓLIÓ FOTÓK SZEKCIÓ KERESŐVEL ÉS SZŰRŐVEL */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
               <div>
@@ -1485,7 +1480,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
                   return (
                     <div key={photo.id || photoKey || idx} style={{ background: 'var(--bg-main)', border: isSelected ? '2px solid #10b981' : '1px solid var(--border-main)', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div onClick={() => toggleSelectPhoto(photo)} style={{ position: 'relative', height: '130px', borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', background: '#000' }}>
-                        <img src={resolvePhotoUrl(photo)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        <img src={resolvePhotoUrl(photo)} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         {isSelected && (
                           <div style={{ position: 'absolute', top: '6px', right: '6px', background: '#10b981', color: 'white', borderRadius: '50%', padding: '2px' }}>
                             <CheckCircle2 size={18} />
@@ -1570,6 +1565,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
             <img 
               src={resolvePhotoUrl(activePhotoModal)} 
               alt={activePhotoModal.title || ''} 
+              referrerPolicy="no-referrer"
               style={{ 
                 width: '100%',
                 height: '100%',
