@@ -42,29 +42,19 @@ import AdminVoterAnalysisView from './views/admin/AdminVoterAnalysisView';
 import ClubWeeklyReviewView from './views/ClubWeeklyReviewView';
 import ClubCoursesView from './views/ClubCoursesView';
 
-// 🎯 3D Virtuális Tárlat nézet beimportálása
 import Gallery3DView from './views/Gallery3DView';
-
-// Témakezelő környezet
 import { ThemeProvider } from './context/ThemeContext'; 
-
 import MarketplaceRoot from './components/marketplace/MarketplaceRoot';
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
-
-// Nyelvi provider környezet behívása a Splash-hez
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
-// Régi domain átirányítása a fájl legtetején
 if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvasok.guru')) {
   window.location.replace(
     'https://photawesome.com' + window.location.pathname + window.location.search
   );
 }
 
-// ====================================================================
-// 🚀 GLOBÁLIS ANTI-FREEZE & TOKEN EXPIRATION INTERCEPTOR
-// ====================================================================
 if (typeof window !== 'undefined') {
   const originalFetch = window.fetch;
 
@@ -122,11 +112,10 @@ if (typeof window !== 'undefined') {
       try {
         const response = await originalFetch(input, init);
         
-        // 🎯 TOKEN LEJÁRAT / ILLETÉKTELEN HOZZÁFÉRÉS ELKAPÁSA
-       if (response.status === 401) {
-        handleUnauthorizedLogout();
-        return response;
-      }
+        if (response.status === 401) {
+          handleUnauthorizedLogout();
+          return response;
+        }
 
         if (response.status >= 500) {
           if (retries > 1) {
@@ -144,7 +133,6 @@ if (typeof window !== 'undefined') {
       } catch (error) {
         retries--;
         if (retries === 0) {
-          // Ha hálózati hiba van, ellenőrizzük, nem a lejárt token miatti CORS elutasítás-e
           const token = localStorage.getItem('photoAppToken');
           if (token) {
             try {
@@ -169,7 +157,6 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -184,7 +171,6 @@ function MainContent() {
   const [targetMapSpotId, setTargetMapSpotId] = useState<number | null>(null);
   const [clubs, setClubs] = useState<any[]>([]);
 
-  // CINEMATIC SPLASH SCREEN ÁLLAPOTOK
   const { lang, t } = useLanguage();
   const [showSplash, setShowSplash] = useState(true);
   const [animateOut, setAnimateOut] = useState(false);
@@ -278,7 +264,6 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  // 🎯 AUTOMATIKUS MUNKAMENET & TOKEN EXPIRATION MONITOR
   useEffect(() => {
     sessionStorage.removeItem('auth_alert_shown');
 
@@ -291,7 +276,6 @@ function MainContent() {
         const expTime = decoded.exp * 1000;
         const now = Date.now();
 
-        // Ha a token lejárt, automatikusan kiléptetünk és visszadobjuk a belépőre
         if (expTime <= now) {
           localStorage.removeItem('photoAppToken');
           localStorage.removeItem('user');
@@ -306,7 +290,6 @@ function MainContent() {
       }
     };
 
-    // 15 másodpercenként automatikusan ellenőrizzük a tokent a háttérben
     const interval = setInterval(checkTokenExpiration, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -390,8 +373,9 @@ function MainContent() {
   };
   
   const fetchClubHomeworkEntries = async (clubId: number, email: string) => {
+    if (!email || email === 'undefined' || email === 'null' || email.trim() === '') return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/homework-entries/club/${clubId}?userEmail=${email}`, { headers: getAuthHeaders() });
+      const res = await fetch(`${BACKEND_URL}/api/homework-entries/club/${clubId}?userEmail=${encodeURIComponent(email)}`, { headers: getAuthHeaders() });
       if (res.ok) { const d = await res.json(); setClubHomeworkEntries(Array.isArray(d) ? d : []); }
     } catch (e) { console.error(e); }
   };
@@ -540,7 +524,7 @@ function MainContent() {
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
 
   useEffect(() => {
-    if (activeTab === 'club_homeworks' && currentDbUser) {
+    if (activeTab === 'club_homeworks' && currentDbUser && user?.email) {
       const club = Array.isArray(clubs) ? clubs.find(c => c.name === currentDbUser.club_name) : null;
       if (club) fetchClubHomeworkEntries(club.id, user.email);
     }
@@ -731,9 +715,9 @@ function MainContent() {
           <Gallery3DView user={null} />
         </div>
       ) : (
-        <div className="app-container" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)', color: 'var(--text-title)', fontFamily: 'Inter, sans-serif' }}>
+        <div className="app-container" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)', color: 'var(--text-title)', fontFamily: 'Inter, sans-serif', width: '100%', maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
           <Header user={headerUser} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} onLogout={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} />
-          <main className="app-main">
+          <main className="app-main" style={{ width: '100%', maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardView user={headerUser} isLeader={!!isLeader} setActiveTab={setActiveTab} setTargetMapSpotId={setTargetMapSpotId} />} />
