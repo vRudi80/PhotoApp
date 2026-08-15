@@ -1,160 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GoogleOAuthProvider } from '@react-oauth/google';
-import { jwtDecode } from "jwt-decode";
-import { GOOGLE_CLIENT_ID, BACKEND_URL, ADMIN_EMAIL } from './utils/constants';
-import { getImageUrl } from './utils/helpers';
-import LoginScreen from '../components/LoginScreen';
-import { FullscreenModal, VideoModal } from './components/Modals';
-import Header from './components/Header';
-import SalonModal from './components/SalonModal';
-import './App.css';
-import SalonsView from './views/SalonsView';
-import ClubNightsView from './views/ClubNightsView';
-import ClubHomeworksView from './views/ClubHomeworksView';
-import AdminClubsView from './views/admin/AdminClubsView';
-import AdminUsersView from './views/admin/AdminUsersView';
-import AdminMeetingsView from './views/admin/AdminMeetingsView';
-import AdminHomeworksView from './views/admin/AdminHomeworksView';
-import AdminSalonsView from './views/admin/AdminSalonsView';
-import AdminBannedEmailsView  from './views/admin/AdminBannedEmailsView'; 
-import ContestsView from './views/ContestsView';
-import MyAlbumView from './views/MyAlbumView'; 
-import MyArenaAlbumView from './views/MyArenaAlbumView'; 
-import AdminSettingsView from './views/admin/AdminSettingsView';
-import FiapProgressView from './views/FiapProgressView';
-import SessionGuard from './components/SessionGuard';
-import MapSpotsView from './views/MapSpotsView';
-import DashboardView from './views/DashboardView';
-import WeeklyChallengeView from './views/WeeklyChallengeView';
-import AdminWeeklyView from './views/admin/AdminWeeklyView';
-import ClubNewsView from './views/ClubNewsView';
-import ProfileView from './views/ProfileView';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import TicketsView from './views/TicketsView';
-import LeaderClubView from './views/LeaderClubView';
-import PodcastView from './views/PodcastView';
-import AdminPointsDashboard from './views/admin/AdminPointsDashboard'; 
-import ForumView from './views/ForumView'; 
-import AdminQuizView from './views/admin/AdminQuizView';
-import QuizView from './views/QuizView';
-import PhotoHistoryView from './views/PhotoHistoryView';
-import AdminVoterAnalysisView from './views/admin/AdminVoterAnalysisView';
-import ClubWeeklyReviewView from './views/ClubWeeklyReviewView';
-import ClubCoursesView from './views/ClubCoursesView';
+import { BACKEND_URL } from '../utils/constants';
+import { getImageUrl } from '../utils/helpers';
+import VideoLoader from '../components/VideoLoader';
+import { useLanguage } from '../context/LanguageContext';
 
-import Gallery3DView from './views/Gallery3DView';
-import { ThemeProvider } from './context/ThemeContext'; 
-import MarketplaceRoot from './components/marketplace/MarketplaceRoot';
-import MafoszProgressView from './views/MafoszProgressView'; 
-import PackagesView from './components/PackagesView'; 
-import { LanguageProvider, useLanguage } from './context/LanguageContext';
-
-if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvasok.guru')) {
-  window.location.replace(
-    'https://photawesome.com' + window.location.pathname + window.location.search
-  );
-}
-
-if (typeof window !== 'undefined') {
-  const originalFetch = window.fetch;
-
-  const triggerDashboardFallback = () => {
-    if (window.location.pathname.includes('3d_gallery')) {
-      console.warn("⚠️ 3D Tárlat betöltési hiba, kihagyjuk a Dashboard átirányítást.");
-      return;
-    }
-
-    if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
-      console.error("🔄 Kritikus szerverhiba észlelve. Kimenekítés a Dashboardra...");
-      window.location.href = '/dashboard';
-    } else {
-      const lastReload = sessionStorage.getItem('last_fallback_reload');
-      const now = Date.now();
-      if (!lastReload || now - Number(lastReload) > 10000) {
-        sessionStorage.setItem('last_fallback_reload', String(now));
-        console.error("🔄 Főoldali hálózati hiba, teljes felület kényszerített újraindítása...");
-        window.location.reload();
-      }
-    }
-  };
-
-  const handleUnauthorizedLogout = () => {
-    if (!sessionStorage.getItem('auth_alert_shown')) {
-      sessionStorage.setItem('auth_alert_shown', 'true');
-      localStorage.removeItem('photoAppToken');
-      localStorage.removeItem('user');
-      alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
-      window.location.href = '/';
-    }
-  };
-
-  window.fetch = async function (input, init) {
-    let requestUrl = '';
-    if (typeof input === 'string') {
-      requestUrl = input;
-    } else if (input instanceof URL) {
-      requestUrl = input.href;
-    } else if (input && (input as any).url) {
-      requestUrl = (input as any).url;
-    }
-
-    const isBackendCall = requestUrl.includes('/api/') || requestUrl.includes(BACKEND_URL) || requestUrl.startsWith('/');
-    const isGoogleAuthAsset = requestUrl.includes('google.com') || requestUrl.includes('accounts.google.com');
-
-    if (!isBackendCall || isGoogleAuthAsset) {
-      return originalFetch(input, init);
-    }
-
-    let retries = 3;     
-    let delay = 600;     
-
-    while (retries > 0) {
-      try {
-        const response = await originalFetch(input, init);
-        
-        if (response.status === 401) {
-          handleUnauthorizedLogout();
-          return response;
-        }
-
-        if (response.status >= 500) {
-          if (retries > 1) {
-            retries--;
-            console.warn(`⚠️ Időleges szerverhiba (${response.status}). Újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue; 
-          } else {
-            triggerDashboardFallback();
-            return response;
-          }
-        }
-        
-        return response; 
-      } catch (error) {
-        retries--;
-        if (retries === 0) {
-          const token = localStorage.getItem('photoAppToken');
-          if (token) {
-            try {
-              const decoded: any = jwtDecode(token);
-              if (decoded.exp * 1000 < Date.now()) {
-                handleUnauthorizedLogout();
-                throw error;
-              }
-            } catch (e) {}
-          }
-
-          triggerDashboardFallback();
-          throw error;
-        }
-        
-        console.warn(`⚠️ Hálózati hiba lépett fel. Újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    
-    return originalFetch(input, init);
-  };
+interface ClubWeeklyReviewProps {
+  user: any;
+  onOpenCourses?: () => void;
 }
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
@@ -165,644 +17,908 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   };
 };
 
-function MainContent() {
-  const [user, setUser] = useState<any>(null);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [targetMapSpotId, setTargetMapSpotId] = useState<number | null>(null);
-  const [clubs, setClubs] = useState<any[]>([]);
+export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeeklyReviewProps) {
+  const { t } = useLanguage();
 
-  const { lang, t } = useLanguage();
-  const [showSplash, setShowSplash] = useState(true);
-  const [animateOut, setAnimateOut] = useState(false);
-
-  const [userEntrySalonIds, setUserEntrySalonIds] = useState<number[]>([]);
-  const [contestPayments, setContestPayments] = useState<any[]>([]);
-  const [myJudgedContests, setMyJudgedContests] = useState<any[]>([]);
-  const [contests, setContests] = useState<any[]>([]);
-  const [myEntries, setMyEntries] = useState<any[]>([]);
-  const [juryList, setJuryList] = useState<any[]>([]);
-  const [meetings, setMeetings] = useState<any[]>([]);
-  const [homeworks, setHomeworks] = useState<any[]>([]);
-  const [myHomeworkEntries, setMyHomeworkEntries] = useState<any[]>([]);
-  const [clubHomeworkEntries, setClubHomeworkEntries] = useState<any[]>([]); 
-  const [salons, setSalons] = useState<any[]>([]);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [countries, setCountries] = useState<any[]>([]);
-  const [allCategories, setAllCategories] = useState<any[]>([]);
-  const [patrons, setPatrons] = useState<any[]>([]);
+  const [roundsList, setRoundsList] = useState<any[]>([]);
+  const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
+  const [activeRound, setActiveRound] = useState<any | null>(null);
+  const [entries, setEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  const [salonSearch, setSalonSearch] = useState('');
-  const [selectedSalon, setSelectedSalon] = useState<any>(null);
+  const [isMasterState, setIsMasterState] = useState<boolean>(false);
 
-  const navigate = useNavigate();
-  const location = useLocation();
-  const activeTab = location.pathname.substring(1) || 'dashboard'; 
+  const [photoScope, setPhotoScope] = useState<'all' | 'my'>('all');
+  const [isPendingOnly, setIsPendingOnly] = useState<boolean>(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'overall' | 'members' | 'masters' | 'ai'>('overall');
 
-  const setActiveTab = (tab: string) => {
-    navigate(`/${tab}`);
-  };
+  const [selectedEntryModal, setSelectedEntryModal] = useState<any | null>(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
-  const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | 'progress' | null>(null);
-
-  const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
-  const [userRoleEdits, setUserRoleEdits] = useState<Record<string, string>>({});
-  const [newClubName, setNewClubName] = useState('');
-
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
-  const [newCategorySettings, setNewCategorySettings] = useState<Record<string, any>>({});
-  const [newStart, setNewStart] = useState('');
-  const [newEnd, setNewEnd] = useState('');
-  const [newCats, setNewCats] = useState('');
-  const [newRestrictedClub, setNewRestrictedClub] = useState(''); 
-  const [newSponsorClub, setNewSponsorClub] = useState('');
-
-  const [newEntryFee, setNewEntryFee] = useState<number | string>(0);
-  const [newFeeCurrency, setNewFeeCurrency] = useState('HUF');
-
-  const [editContestId, setEditContestId] = useState<number | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editDesc, setEditDesc] = useState('');
-  const [editStart, setEditStart] = useState('');
-  const [editEnd, setEditEnd] = useState('');
-  const [editCats, setEditCats] = useState('');
-  const [editRestrictedClub, setEditRestrictedClub] = useState(''); 
-  const [editSponsorClub, setEditSponsorClub] = useState('');
-
-  const [editEntryFee, setEditEntryFee] = useState<number | string>(0);
-  const [editFeeCurrency, setEditFeeCurrency] = useState('HUF');
-  const [editCategorySettings, setEditCategorySettings] = useState<Record<string, any>>({});
-
-  const [meetingSearch, setMeetingSearch] = useState(''); 
-  const [activeVideo, setActiveVideo] = useState<string | null>(null);
-
-  const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [photoTitle, setPhotoTitle] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
-  const [uploadTitle, setUploadTitle] = useState('');
-  const [uploadCategory, setUploadCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
-  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
-  const [editEntryTitle, setEditEntryTitle] = useState('');
-
-  const [manageJuryContestId, setManageJuryContestId] = useState<number | null>(null);
-  const [selectedJuryEmail, setSelectedJuryEmail] = useState('');
-
-  const [judgingContestId, setJudgingContestId] = useState<number | null>(null);
-  const [unvotedEntries, setUnvotedEntries] = useState<any[]>([]);
-  const [currentScore, setCurrentScore] = useState<number | ''>('');
-  
-  const [viewResultsContestId, setViewResultsContestId] = useState<number | null>(null);
-  const [contestResults, setContestResults] = useState<any[]>([]);
-  const [viewStatsContestId, setViewStatsContestId] = useState<number | null>(null);
-  const [contestStats, setContestStats] = useState<any[]>([]);
-
-  const [viewJuryProgressId, setViewJuryProgressId] = useState<number | null>(null);
-  const [juryProgressData, setJuryProgressData] = useState<{total_entries: number, stats: any[]}>({total_entries: 0, stats: []});
-
-  const [fullscreenData, setFullscreenData] = useState<any>(null);
+  const isPending = user?.club_role === 'pending';
+  const hasNoClub = !user?.club_name || isPending;
 
   useEffect(() => {
-    sessionStorage.removeItem('auth_alert_shown');
-
-    const checkTokenExpiration = () => {
-      const storedToken = localStorage.getItem('photoAppToken');
-      if (!storedToken) return;
-
-      try {
-        const decoded: any = jwtDecode(storedToken);
-        const expTime = decoded.exp * 1000;
-        const now = Date.now();
-
-        if (expTime <= now) {
-          localStorage.removeItem('photoAppToken');
-          localStorage.removeItem('user');
-          setUser(null);
-          alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
-          window.location.href = '/';
-        }
-      } catch (e) {
-        localStorage.removeItem('photoAppToken');
-        localStorage.removeItem('user');
-        setUser(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedEntryModal(null);
+        setShowHelpModal(false);
+        setShowUploadModal(false);
       }
     };
-
-    const interval = setInterval(checkTokenExpiration, 15000);
-    return () => clearInterval(interval);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const urlParams = new URLSearchParams(location.search);
-  const isPublicGalleryLink = location.pathname.includes('3d_gallery') && (
-    urlParams.has('token') || urlParams.has('id') || urlParams.has('public')
-  );
-
-  const fetchData = async (retryCount = 0) => {
-    const token = localStorage.getItem('photoAppToken');
-    if (!token) {
-      setIsInitialLoading(false);
+  const loadRounds = async () => {
+    if (hasNoClub) {
+      setLoading(false);
       return;
     }
-    if (retryCount === 0) setIsInitialLoading(true);
+    setLoading(true);
     try {
-      const [
-        resUsers, resClubs, resContests, resJury, resMeetings, 
-        resHw, resCountries, resCats, resPatrons, resSalons, resPayments
-      ] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/users`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/clubs`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/contests`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/jury`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/meetings`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/homeworks`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/countries`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/categories`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/patrons`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/salons`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/contest-payments`, { headers: getAuthHeaders() })
-      ]);
+      const activeRes = await fetch(`${BACKEND_URL}/api/club-review/active-round`, { headers: getAuthHeaders() });
+      let currentActive = null;
+      if (activeRes.ok) {
+        const activeData = await activeRes.json();
+        currentActive = activeData.round;
+        setActiveRound(currentActive);
 
-      if (resUsers.status === 403 || resClubs.status === 403 || resMeetings.status === 403) {
-        localStorage.removeItem('photoAppToken');
-        localStorage.removeItem('user');
-        setUser(null);
-        setIsInitialLoading(false);
-        setIsAuthLoading(false);
-        alert("Ez a fiók biztonsági okokból véglegesen ki lett tiltva az Arénából!");
-        return;
+        setIsMasterState(Boolean(activeData.isMaster || user?.is_master == 1 || user?.club_role === 'leader' || user?.isAdmin));
       }
 
-      if (!resUsers.ok || !resContests.ok || !resMeetings.ok || !resHw.ok) throw new Error("Hiba");
+      const roundsRes = await fetch(`${BACKEND_URL}/api/club-review/rounds`, { headers: getAuthHeaders() });
+      if (roundsRes.ok) {
+        const roundsData = await roundsRes.json();
+        setRoundsList(roundsData);
 
-      if (resUsers.ok) { const d = await resUsers.json(); setAllUsers(Array.isArray(d) ? d : []); }
-      if (resClubs.ok) { const d = await resClubs.json(); setClubs(Array.isArray(d) ? d : []); }
-      if (resContests.ok) { const d = await resContests.json(); setContests(Array.isArray(d) ? d : []); }
-      if (resJury.ok) { const d = await resJury.json(); setJuryList(Array.isArray(d) ? d : []); }
-      if (resMeetings.ok) { const d = await resMeetings.json(); setMeetings(Array.isArray(d) ? d : []); }
-      if (resHw.ok) { const d = await resHw.json(); setHomeworks(Array.isArray(d) ? d : []); }
-      if (resCountries.ok) { const d = await resCountries.json(); setCountries(Array.isArray(d) ? d : []); }
-      if (resCats.ok) { const d = await resCats.json(); setAllCategories(Array.isArray(d) ? d : []); }
-      if (resPatrons.ok) { const d = await resPatrons.json(); setPatrons(Array.isArray(d) ? d : []); }
-      if (resSalons.ok) { const d = await resSalons.json(); setSalons(Array.isArray(d) ? d : []); }
-      if (resPayments && resPayments.ok) { const d = await resPayments.json(); setContestPayments(Array.isArray(d) ? d : []); }
-
-      setIsInitialLoading(false); 
-    } catch (e) { 
-      if (retryCount < 3) setTimeout(() => fetchData(retryCount + 1), 1500); 
-      else { setIsInitialLoading(false); alert("Átmeneti hálózati hiba!"); }
-    }
-  };
-  
-  const fetchMyEntries = async (email: string) => {
-    if (!email || email === 'undefined' || email === 'null' || email.trim() === '') return;
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${encodeURIComponent(email)}`, { headers: getAuthHeaders() });
-      if (res.ok) { const d = await res.json(); setMyEntries(Array.isArray(d) ? d : []); }
-      
-      const resHw = await fetch(`${BACKEND_URL}/api/my-homework-entries?userEmail=${encodeURIComponent(email)}`, { headers: getAuthHeaders() });
-      if (resHw.ok) { const d = await resHw.json(); setMyHomeworkEntries(Array.isArray(d) ? d : []); }
-      
-      const resSalons = await fetch(`${BACKEND_URL}/api/my-salon-entries-status?userEmail=${encodeURIComponent(email)}`, { headers: getAuthHeaders() });
-      if (resSalons.ok) { const d = await resSalons.json(); setUserEntrySalonIds(Array.isArray(d) ? d : []); }
-      
-      const resJudged = await fetch(`${BACKEND_URL}/api/my-judged-contests?userEmail=${encodeURIComponent(email)}`, { headers: getAuthHeaders() });
-      if (resJudged.ok) { const d = await resJudged.json(); setMyJudgedContests(Array.isArray(d) ? d : []); }
-    } catch (e) { console.error("Hiba a nevezések letöltésekor:", e); }
-  };
-  
-  const fetchClubHomeworkEntries = async (clubId: number, email: string) => {
-    if (!email || email === 'undefined' || email === 'null' || email.trim() === '') return;
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/homework-entries/club/${clubId}?userEmail=${encodeURIComponent(email)}`, { headers: getAuthHeaders() });
-      if (res.ok) { const d = await res.json(); setClubHomeworkEntries(Array.isArray(d) ? d : []); }
-    } catch (e) { console.error(e); }
-  };
-
-  useEffect(() => {
-    const initializeAuth = async () => {
-      const storedToken = localStorage.getItem('photoAppToken');
-      
-      if (!storedToken) {
-        localStorage.removeItem('user');
-        setUser(null);
-        setIsAuthLoading(false);
-        setIsInitialLoading(false);
-        return;
-      }
-
-      try {
-        const decoded: any = jwtDecode(storedToken);
-        
-        if (decoded.exp * 1000 < Date.now()) {
-          localStorage.removeItem('photoAppToken');
-          localStorage.removeItem('user');
-          setUser(null);
-          setIsAuthLoading(false);
-          setIsInitialLoading(false);
-          return;
+        if (currentActive?.id) {
+          setSelectedRoundId(currentActive.id);
+        } else if (roundsData.length > 0) {
+          setSelectedRoundId(roundsData[0].id);
         }
-
-        const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
-        });
-
-        if (res.status === 403) {
-          localStorage.removeItem('photoAppToken');
-          localStorage.removeItem('user');
-          setUser(null);
-          setIsAuthLoading(false);
-          setIsInitialLoading(false);
-          alert("Ez a fiók biztonsági okokból véglegesen ki lett tiltva!");
-          return;
-        }
-
-        if (res.ok) {
-          const data = await res.json();
-          const fullUser = {
-            ...decoded,
-            isPremium: data.isPremium,
-            is_premium: data.isPremium,
-            premiumUntil: data.premiumUntil,
-            premiumLevel: data.premiumLevel,
-            premium_level: data.premiumLevel
-          };
-          
-          localStorage.setItem('user', JSON.stringify(fullUser));
-          setUser(fullUser);
-          setIsAuthLoading(false);
-          
-          await fetchData();
-          await fetchMyEntries(decoded.email);
-        } else {
-          setUser(decoded);
-          setIsAuthLoading(false);
-          await fetchData();
-          await fetchMyEntries(decoded.email);
-        }
-      } catch (e) {
-        console.error("Munkamenet ellenőrzési hiba:", e);
-        localStorage.removeItem('photoAppToken');
-        localStorage.removeItem('user');
-        setUser(null);
-        setIsAuthLoading(false);
-        setIsInitialLoading(false);
-      }
-    };
-
-    initializeAuth();
-  }, []);
-
-  useEffect(() => {
-    const silentAuthSync = async () => {
-      const storedToken = localStorage.getItem('photoAppToken');
-      if (!storedToken) return;
-
-      try {
-        const decoded: any = jwtDecode(storedToken);
-        if (decoded.exp * 1000 < Date.now()) return;
-
-        const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
-        });
-
-        if (res.status === 403) {
-          localStorage.removeItem('photoAppToken');
-          localStorage.removeItem('user');
-          setUser(null);
-          window.location.reload();
-          return;
-        }
-
-        if (res.ok) {
-          const authData = await res.json();
-          setUser((prev: any) => prev ? {
-            ...prev,
-            isPremium: authData.isPremium,
-            is_premium: authData.isPremium,
-            premiumLevel: authData.premiumLevel,
-            premium_level: authData.premiumLevel,
-            premiumUntil: authData.premiumUntil
-          } : prev);
-        }
-
-        const usersRes = await fetch(`${BACKEND_URL}/api/users`, {
-          headers: getAuthHeaders()
-        });
-        
-        if (usersRes.status === 403) return;
-
-        if (usersRes.ok) {
-          const freshAllUsers = await usersRes.json();
-          setAllUsers(Array.isArray(freshAllUsers) ? freshAllUsers : []); 
-        }
-      } catch (error) {
-        console.error('Háttér-szinkronizációs hiba:', error);
-      }
-    };
-
-    const handleVisibilityChange = () => { if (document.visibilityState === 'visible') silentAuthSync(); };
-    window.addEventListener('focus', silentAuthSync);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => { document.removeEventListener('visibilitychange', handleVisibilityChange); window.removeEventListener('focus', silentAuthSync); };
-  }, []);
-
-  useEffect(() => {
-    if (!isInitialLoading && !isAuthLoading) {
-      setAnimateOut(true);
-      const timer = setTimeout(() => { setShowSplash(false); }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [isInitialLoading, isAuthLoading]);
-
-  const currentDbUser = Array.isArray(allUsers) ? allUsers.find(u => u.email === user?.email) : null;
-  const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
-
-  useEffect(() => {
-    if (activeTab === 'club_homeworks' && currentDbUser && user?.email) {
-      const club = Array.isArray(clubs) ? clubs.find(c => c.name === currentDbUser.club_name) : null;
-      if (club) fetchClubHomeworkEntries(club.id, user.email);
-    }
-  }, [activeTab, currentDbUser, clubs, user]);
-
-  const handleDeleteHwEntry = async (entryId: number) => {
-    if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) { fetchMyEntries(user.email); const club = Array.isArray(clubs) ? clubs.find(c => c.name === currentDbUser?.club_name) : null; if (club) fetchClubHomeworkEntries(club.id, user.email); }
-  };
-
-  const handleToggleLike = async (entryId: number) => {
-    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, { method: 'POST', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) { const club = Array.isArray(clubs) ? clubs.find(c => c.name === currentDbUser?.club_name) : null; if (club) fetchClubHomeworkEntries(club.id, user.email); }
-  };
-
-  const handleLoginSuccess = async (credential: string) => {
-    localStorage.setItem('photoAppToken', credential);
-    const decoded: any = jwtDecode(credential);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/sync`, { 
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub }) 
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const freshUser = { 
-          ...decoded, 
-          isPremium: data.isPremium, 
-          is_premium: data.isPremium,
-          premiumUntil: data.premiumUntil, 
-          premiumLevel: data.premiumLevel,
-          premium_level: data.premiumLevel
-        };
-        setUser(freshUser);
-        localStorage.setItem('user', JSON.stringify(freshUser)); 
-      } else {
-        setUser(decoded); localStorage.setItem('user', JSON.stringify(decoded));
       }
     } catch (e) {
-      setUser(decoded); localStorage.setItem('user', JSON.stringify(decoded));
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
-    fetchData(); fetchMyEntries(decoded.email);
-    setActiveTab('dashboard');
   };
 
-  const handlePayContestFee = async (contestId: number) => {
+  const loadEntriesForRound = async (roundId: number) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/create-contest-payment`, {
-        method: 'POST', headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ userEmail: user.email, contestId: contestId, returnUrl: window.location.origin })
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else alert(data.error || 'Hiba a fizetés indításakor.');
-    } catch (e) { alert('Hálózati hiba a Stripe elérésekor!'); }
+      const res = await fetch(`${BACKEND_URL}/api/club-review/entries/${roundId}`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        setEntries(await res.json());
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
-  const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE', headers: getAuthHeaders() }); if (res.ok) fetchData(); };
-  
-  const handleUpdateClub = async (id: number, name: string) => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'PUT', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ name }) });
-      if (res.ok) { fetchData(); alert('Klub neve sikeresen frissítve!'); }
-    } catch (e) { alert('Hálózati hiba történt!'); }
-  };
+  useEffect(() => { 
+    loadRounds(); 
+  }, [user?.club_name, user?.club_role, user?.is_master]);
 
-  const saveUserClub = async (email: string) => { 
-    const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (Array.isArray(allUsers) ? (allUsers.find(u => u.email === email)?.club_name || '') : ''); 
-    const clubRole = userRoleEdits[email] !== undefined ? userRoleEdits[email] : (Array.isArray(allUsers) ? (allUsers.find(u => u.email === email)?.club_role || 'member') : 'member');
-    const matchedClub = Array.isArray(clubs) ? clubs.find(c => c.name === clubName) : null;
-    const clubId = matchedClub ? matchedClub.id : null;
+  useEffect(() => {
+    if (selectedRoundId) {
+      loadEntriesForRound(selectedRoundId);
+    }
+  }, [selectedRoundId]);
 
-    const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { method: 'PUT', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ clubName, clubRole, clubId }) }); 
-    if (res.ok) { alert("Sikeres mentés!"); fetchData(); } 
-  };
-  
-  const handleCreateContest = async () => { 
-    if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); 
-    let finalRestrictedClubId: number | null = null;
-    if (user.email === ADMIN_EMAIL) { finalRestrictedClubId = newRestrictedClub ? Number(newRestrictedClub) : null; } 
-    else { finalRestrictedClubId = currentDbUser?.club_id || null; if (!finalRestrictedClubId) return alert("Hiba: Nem vagy klubhoz rendelve!"); }
+  const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
-    const res = await fetch(`${BACKEND_URL}/api/contests`, { method: 'POST', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats, restrictedClubId: finalRestrictedClubId, sponsorClubId: newSponsorClub ? Number(newSponsorClub) : null, entryFee: newEntryFee, feeCurrency: newFeeCurrency, categorySettings: newCategorySettings }) }); 
-    if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); setNewSponsorClub(''); setNewEntryFee(0); setNewFeeCurrency('HUF'); fetchData(); alert("Pályázat sikeresen kiírva! 🚀"); }
-  };
+  const isUploadClosed = useMemo(() => {
+    if (!currentSelectedRoundObj?.upload_deadline) return false;
+    return new Date() > new Date(currentSelectedRoundObj.upload_deadline);
+  }, [currentSelectedRoundObj]);
 
-  const startEdit = (contest: any) => { 
-    setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || ''); setEditRestrictedClub(contest.restricted_club_id ? String(contest.restricted_club_id) : ''); setEditSponsorClub(contest.sponsor_club_id ? String(contest.sponsor_club_id) : ''); setEditEntryFee(contest.entry_fee || 0); setEditFeeCurrency(contest.fee_currency || 'HUF');
-    const formatDate = (dateStr: string | null) => { if (!dateStr) return ''; return dateStr.replace('Z', '').substring(0, 16); }; 
-    try { setEditCategorySettings(typeof contest.category_settings === 'string' ? JSON.parse(contest.category_settings) : (contest.category_settings || {})); } catch(e) { setEditCategorySettings({}); }
-    setEditStart(formatDate(contest.start_date)); setEditEnd(formatDate(contest.end_date)); 
-  };
-
-  const handleUpdateContest = async () => { 
-    const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { method: 'PUT', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats, restrictedClubId: editRestrictedClub ? Number(editRestrictedClub) : null, sponsorClubId: editSponsorClub ? Number(editSponsorClub) : null, entryFee: editEntryFee, feeCurrency: editFeeCurrency, categorySettings: editCategorySettings }) }); 
-    if (res.ok) { setEditContestId(null); setEditSponsorClub(''); fetchData(); alert("Pályázat sikeresen frissítve!"); } 
-  };
-
-  const handleAddJury = async (contestId: number) => { if (!selectedJuryEmail) return; const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'POST', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ contestId, userEmail: selectedJuryEmail }) }); if (res.ok) { setSelectedJuryEmail(''); fetchData(); } };
-  const handleRemoveJury = async (contestId: number, email: string) => { const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'DELETE', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ contestId, userEmail: email }) }); if (res.ok) fetchData(); };
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); } };
-  
-  const handleUpload = async (contestId: number) => { 
-    if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); 
-    setIsUploading(true); 
-    try { 
-      const formData = new FormData(); 
-      formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory); formData.append('acceptedTerms', '1'); formData.append('acceptedTermsAt', new Date().toISOString()); formData.append('photo', uploadFile); 
-      const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', headers: getAuthHeaders(), body: formData }); 
-      if (res.ok) { alert("Sikeres nevezés! A jognyilatkozatot és a technikai validációt rögzítettük."); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } 
-    } catch (error) { alert("Hálózati hiba történt a feltöltés közben!"); } finally { setIsUploading(false); } 
-  };
-
-  const handleUpdateEntryTitle = async (entryId: number) => { 
-    if (!editEntryTitle) return alert('A cím nem lehet üres!'); 
-    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'PUT', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ title: editEntryTitle, userEmail: user.email }) }); 
-    if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); }
-  };
-
-  const handleDeleteContestEntry = async (entryId: number) => { 
-    if (!window.confirm("Biztosan törlöd?")) return; 
-    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ userEmail: user.email }) }); 
-    if (res.ok) fetchMyEntries(user.email); 
-  };
-
-  const startJudging = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`, { headers: getAuthHeaders() }); if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); } };
-  const submitVote = async () => { 
-    const score = Number(currentScore); 
-    if (score < 0 || score > 100 || currentScore === '') return alert("0 és 100 közötti pontszámot adj meg!"); 
-    const res = await fetch(`${BACKEND_URL}/api/vote`, { method: 'POST', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ entryId: unvotedEntries[0].id, juryEmail: user.email, score }) }); 
-    if (res.ok) { setUnvotedEntries(prev => prev.slice(1)); setCurrentScore(''); if (unvotedEntries.length === 1) { fetchMyEntries(user.email); fetchData(); } } 
-  };
-  const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`, { headers: getAuthHeaders() }); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
-  const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`, { headers: getAuthHeaders() }); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
-  const handleDeleteContest = async (id: number) => { if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?")) return; const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE', headers: getAuthHeaders() }); if (res.ok) fetchData(); };
-  const loadJuryProgress = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`, { headers: getAuthHeaders() }); if (res.ok) { setJuryProgressData(await res.json()); setViewJuryProgressId(contestId); } };
-  
-  const filteredContests = Array.isArray(contests) ? contests.filter(contest => {
-    const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
-    const now = new Date(); const start = contest.start_date ? new Date(contest.start_date) : new Date(0); const end = contest.end_date ? new Date(contest.end_date) : new Date(0); const isEnded = now > end && start.getFullYear() > 1970;
-    const isUserJuryForThisContest = Array.isArray(juryList) ? juryList.some(j => j.contest_id === contest.id && j.user_email === user?.email) : false;
-    if (activeTab === 'admin_contests') return true; 
-    if (activeTab === 'contests_closed') { if (!isEnded) return false; if (isRestricted && contest.restricted_club !== currentDbUser?.club_name && !isUserJuryForThisContest) return false; return true; }
-    if (activeTab === 'contests_club_active') return (isRestricted && contest.restricted_club === currentDbUser?.club_name && !isEnded) || isUserJuryForThisContest;
-    if (activeTab === 'contests_open_active') return !isRestricted && !isEnded;
+  const isRoundClosed = useMemo(() => {
+    if (!currentSelectedRoundObj) return false;
+    if (currentSelectedRoundObj.status === 'closed') return true;
+    if (currentSelectedRoundObj.rating_deadline) {
+      return new Date() > new Date(currentSelectedRoundObj.rating_deadline);
+    }
     return false;
-  }) : [];
+  }, [currentSelectedRoundObj]);
 
-  const myClubMeetings = Array.isArray(meetings) ? meetings.filter(m => m.club_name === currentDbUser?.club_name) : [];
-  const searchedMeetings = myClubMeetings.filter(m => !meetingSearch || m.topic.toLowerCase().includes(meetingSearch.toLowerCase()) || (m.description && m.description.toLowerCase().includes(meetingSearch.toLowerCase())));
-  const adminMeetings = user?.email === ADMIN_EMAIL ? (Array.isArray(meetings) ? meetings : []) : myClubMeetings;
-  const myClubHomeworks = Array.isArray(homeworks) ? homeworks.filter(h => h.club_name === currentDbUser?.club_name) : [];
-  const adminHomeworks = user?.email === ADMIN_EMAIL ? (Array.isArray(homeworks) ? homeworks : []) : myClubHomeworks;
-  const sortedSalons = Array.isArray(salons) ? [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime()) : [];
+  const myUploadCount = useMemo(() => {
+    return entries.filter(e => e.user_email === user?.email).length;
+  }, [entries, user?.email]);
 
-  const headerUser = useMemo(() => {
-    if (!user) return null;
-    if (!currentDbUser) return user;
-    return { ...user, name: currentDbUser.name || user.name, is_premium: currentDbUser.is_premium, isPremium: currentDbUser.is_premium === 1, premiumUntil: currentDbUser.premium_until, club_name: currentDbUser.club_name, club_id: currentDbUser.club_id, club_role: currentDbUser.club_role };
-  }, [user, currentDbUser]);
+  const maxUploads = useMemo(() => {
+    const isPremium = Number(user?.is_premium) === 1 || user?.is_premium === true;
+    const premLevel = Number(user?.premium_level || 0);
+    if (isPremium) {
+      return premLevel >= 2 ? 10 : 3;
+    }
+    return 1;
+  }, [user?.is_premium, user?.premium_level]);
+
+  const hasReachedUploadLimit = myUploadCount >= maxUploads;
+
+  const unvotedCount = useMemo(() => {
+    return entries.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined)).length;
+  }, [entries, user?.email]);
+
+  const categoryCounts = useMemo(() => {
+    let baseList = [...entries];
+    if (photoScope === 'my') {
+      baseList = baseList.filter(e => e.user_email === user?.email);
+    }
+    if (isPendingOnly && !isRoundClosed) {
+      baseList = baseList.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined));
+    }
+
+    return {
+      all: baseList.length,
+      portrait: baseList.filter(e => String(e.ai_category || '').includes('portrait')).length,
+      color: baseList.filter(e => String(e.ai_category || '').includes('color')).length,
+      monochrome: baseList.filter(e => String(e.ai_category || '').includes('monochrome')).length,
+      nature: baseList.filter(e => String(e.ai_category || '').includes('nature')).length,
+    };
+  }, [entries, photoScope, isPendingOnly, isRoundClosed, user?.email]);
+
+  const sortedAndFilteredEntries = useMemo(() => {
+    let list = [...entries];
+
+    if (photoScope === 'my') {
+      list = list.filter(e => e.user_email === user?.email);
+    }
+
+    if (isPendingOnly && !isRoundClosed) {
+      list = list.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined));
+    }
+
+    if (categoryFilter !== 'all') {
+      list = list.filter(e => {
+        if (!e.ai_category) return false;
+        return String(e.ai_category).includes(categoryFilter);
+      });
+    }
+
+    if (isRoundClosed) {
+      list.sort((a, b) => {
+        if (sortBy === 'overall') return (a.overallRank || 999) - (b.overallRank || 999);
+        if (sortBy === 'members') return (a.memberRank || 999) - (b.memberRank || 999);
+        if (sortBy === 'masters') return (a.masterRank || 999) - (b.masterRank || 999);
+        if (sortBy === 'ai') return (a.aiRank || 999) - (b.aiRank || 999);
+        return 0;
+      });
+    }
+
+    return list;
+  }, [entries, photoScope, isPendingOnly, categoryFilter, sortBy, isRoundClosed, user?.email]);
+
+  const handleRate = async (entryId: number, score: number) => {
+    setEntries(prev => prev.map(item => 
+      item.id === entryId ? { ...item, my_score: score } : item
+    ));
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/club-review/rate`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ entryId, score })
+      });
+
+      if (res.ok) {
+        if (selectedRoundId) loadEntriesForRound(selectedRoundId);
+        if (selectedEntryModal && selectedEntryModal.id === entryId) {
+          setSelectedEntryModal((prev: any) => ({ ...prev, my_score: score }));
+        }
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Hiba a pontozás során.');
+        if (selectedRoundId) loadEntriesForRound(selectedRoundId);
+      }
+    } catch (e) {
+      alert('Hálózati hiba.');
+      if (selectedRoundId) loadEntriesForRound(selectedRoundId);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFile(file);
+      setUploadPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!photoTitle.trim() || !uploadFile) {
+      return alert('Kérlek add meg a kép címét és válaszd ki a fotó fájlt!');
+    }
+
+    const targetRoundId = selectedRoundId || activeRound?.id;
+    if (!targetRoundId) {
+      return alert('Hiba: Nem található kijelölt heti forduló!');
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('roundId', String(targetRoundId));
+      formData.append('title', photoTitle);
+      formData.append('photo', uploadFile);
+
+      const res = await fetch(`${BACKEND_URL}/api/club-review/upload`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setShowUploadModal(false);
+        setPhotoTitle('');
+        setUploadFile(null);
+        setUploadPreview(null);
+        if (selectedRoundId) loadEntriesForRound(selectedRoundId);
+        alert('Kép elküldve! Az AI elkészítette a szakmai elemzést.');
+      } else {
+        alert(data.error || 'Hiba a feltöltés során.');
+      }
+    } catch (err) {
+      alert('Hálózati hiba.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const checkIsMaster = isMasterState || user?.is_master == 1 || user?.is_master === true || user?.club_role === 'leader' || user?.isAdmin;
+  const isCurrentActiveRoundSelected = selectedRoundId === activeRound?.id;
+
+  const activeModalRankedEntry = useMemo(() => {
+    if (!selectedEntryModal) return null;
+    return entries.find(e => e.id === selectedEntryModal.id) || selectedEntryModal;
+  }, [selectedEntryModal, entries]);
+
+  if (loading) return <VideoLoader />;
+
+  if (hasNoClub) {
+    return (
+      <div style={{ textAlign: 'center', padding: '3rem 1.5rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', margin: '20px auto', maxWidth: '800px', boxSizing: 'border-box' }}>
+        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontWeight: '700', wordBreak: 'break-word' }}>
+          {isPending ? 'Jelentkezésed jóváhagyásra vár' : t('contNoClubTitle')}
+        </h2>
+        <p style={{ color: 'var(--text-body)', fontSize: '1rem', maxWidth: '540px', margin: '0 auto', lineHeight: '1.5' }}>
+          A heti képértékelő és az AI elemzések megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral. - kovari.rudolf@gmail.com
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {fullscreenData && (
-        <FullscreenModal data={fullscreenData} onClose={() => setFullscreenData(null)} entryList={fullscreenData._entryList} currentIndex={fullscreenData._currentIndex} onNavigate={fullscreenData._onNavigate} onToggleLike={fullscreenData._onToggleLike} />
-      )}
-      {selectedSalon && <SalonModal salon={selectedSalon} user={user} onClose={() => setSelectedSalon(null)} />}
-      {activeVideo && <VideoModal videoUrl={activeVideo} onClose={() => setActiveVideo(null)} />}
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '10px', boxSizing: 'border-box', width: '100%' }}>
+      
+      {/* FEJLÉC ÉS FORDULÓVÁLASZTÓ */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-main)', marginBottom: '16px', flexWrap: 'wrap', gap: '12px', boxSizing: 'border-box', width: '100%' }}>
+        <div style={{ flex: '1 1 280px', minWidth: 0, maxWidth: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.6rem)', color: '#a78bfa', wordBreak: 'break-word', maxWidth: '100%' }}>
+              {currentSelectedRoundObj?.title || t('reviewTitle')}
+            </h2>
 
-      {showSplash ? (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: '#090d16', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 999999, opacity: animateOut ? 0 : 1, transition: 'opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1)', pointerEvents: 'none' }}>
-          <div style={{ width: '90%', maxWidth: '580px', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.06)', background: '#000', position: 'relative' }}>
-            <video src={lang === 'en' ? '/splash_en.mp4' : '/splash_hu.mp4'} autoPlay muted playsInline loop style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {isRoundClosed && (
+              <span style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '3px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                {t('reviewClosedBadge')}
+              </span>
+            )}
           </div>
-          <div style={{ marginTop: '30px', textAlign: 'center', animation: 'appSplashPulse 1.8s infinite' }}>
-            <h4 style={{ color: '#f8fafc', fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>{lang === 'en' ? 'Launching System...' : 'Rendszer indítása...'}</h4>
-            <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>{lang === 'en' ? 'Launching System...' : 'Adatok és biztonságos munkamenetek szinkronizálása'}</p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', flexWrap: 'wrap', width: '100%' }}>
+            <span style={{ whiteSpace: 'nowrap' }}>{t('reviewSelectRound')}</span>
+            <select 
+              value={selectedRoundId || ''} 
+              onChange={e => setSelectedRoundId(Number(e.target.value))}
+              style={{ 
+                background: 'var(--bg-main)', 
+                color: 'var(--text-title)', 
+                border: '1px solid var(--border-main)', 
+                padding: '6px 10px', 
+                borderRadius: '6px', 
+                fontSize: '0.85rem', 
+                fontWeight: 'bold', 
+                outline: 'none',
+                maxWidth: '100%',
+                flex: '1 1 auto'
+              }}
+            >
+              {roundsList.map(r => {
+                const now = new Date();
+                const isUploadEnded = r.upload_deadline ? now > new Date(r.upload_deadline) : false;
+                const isRoundEnded = r.status === 'closed' || (r.rating_deadline ? now > new Date(r.rating_deadline) : false);
+
+                let statusLabel = '';
+                if (isUploadEnded && !isRoundEnded) {
+                  statusLabel = ' (Értékelési időszak)';
+                } else if (r.id === activeRound?.id) {
+                  statusLabel = ' (Aktuális hét)';
+                }
+
+                return (
+                  <option key={r.id} value={r.id}>
+                    {r.title}{statusLabel}
+                  </option>
+                );
+              })}
+            </select>
           </div>
         </div>
-      ) : null}
 
-      {!user && !isPublicGalleryLink ? (
-        <LoginScreen onLoginSuccess={handleLoginSuccess} />
-      ) : !user && isPublicGalleryLink ? (
-        <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)' }}>
-          <Gallery3DView user={null} />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
+          
+          {(user?.isAdmin || user?.email === 'kovari.rudolf@gmail.com') && (
+            <button 
+              onClick={async () => {
+                if (!selectedRoundId) return alert('Válassz ki egy fordulót!');
+                const confirmSend = window.confirm('Elküldjük a Heti Értékelő összefoglaló teszt e-mailjét A SAJÁT CÍMEDRE? (Senki más nem kapja meg)');
+                if (!confirmSend) return;
+
+                try {
+                  const res = await fetch(`${BACKEND_URL}/api/club-review/send-test-email`, {
+                    method: 'POST',
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ roundId: selectedRoundId, forceTop3: true })
+                  });
+
+                  const data = await res.json();
+                  if (res.ok) {
+                    alert(`${data.message}`);
+                  } else {
+                    alert(`Hiba: ${data.error}`);
+                  }
+                } catch (e) {
+                  alert('Hálózati hiba a teszt e-mail küldésekor.');
+                }
+              }}
+              style={{ 
+                background: 'rgba(56, 189, 248, 0.15)', 
+                color: '#38bdf8', 
+                border: '1px solid rgba(56, 189, 248, 0.3)', 
+                padding: '8px 14px', 
+                borderRadius: '8px', 
+                fontWeight: 'bold', 
+                cursor: 'pointer', 
+                fontSize: '0.85rem'
+              }}
+            >
+              Teszt E-mail
+            </button>
+          )}
+
+          <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '8px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+            {t('reviewBtnHelp')}
+          </button>
+
+          {onOpenCourses && (
+            <button onClick={onOpenCourses} style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '8px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+              {t('reviewBtnCourses')}
+            </button>
+          )}
+
+          {isCurrentActiveRoundSelected && !isUploadClosed && (
+            <button 
+              onClick={() => {
+                if (!hasReachedUploadLimit) setShowUploadModal(true);
+              }}
+              disabled={hasReachedUploadLimit}
+              style={{ 
+                background: hasReachedUploadLimit ? '#334155' : '#f97316', 
+                color: hasReachedUploadLimit ? '#94a3b8' : 'white', 
+                border: hasReachedUploadLimit ? '1px solid #475569' : 'none', 
+                padding: '8px 16px', 
+                borderRadius: '8px', 
+                fontWeight: 'bold', 
+                cursor: hasReachedUploadLimit ? 'not-allowed' : 'pointer', 
+                fontSize: '0.88rem',
+                opacity: hasReachedUploadLimit ? 0.8 : 1
+              }}
+            >
+              {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
+            </button>
+          )}
+
+          {isUploadClosed && !isRoundClosed && (
+            <div style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '8px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+              Feltöltés lezárult
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SZŰRŐSÁV */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', background: 'var(--bg-card)', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-main)', flexWrap: 'wrap', boxSizing: 'border-box', width: '100%' }}>
+        
+        <button
+          onClick={() => {
+            const nextScope = photoScope === 'all' ? 'my' : 'all';
+            setPhotoScope(nextScope);
+            if (nextScope === 'my') setIsPendingOnly(false);
+          }}
+          style={{
+            background: photoScope === 'my' ? '#a78bfa' : 'var(--bg-main)',
+            color: photoScope === 'my' ? '#0f172a' : 'var(--text-title)',
+            border: '1px solid var(--border-main)',
+            padding: '8px 14px',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            fontSize: '0.85rem',
+            cursor: 'pointer'
+          }}
+        >
+          {photoScope === 'my' ? t('reviewScopeMy') : t('reviewScopeAll')}
+        </button>
+
+        {!isRoundClosed && (
+          <button
+            onClick={() => {
+              setIsPendingOnly(prev => !prev);
+              if (!isPendingOnly) setPhotoScope('all');
+            }}
+            style={{
+              background: isPendingOnly ? '#f97316' : 'var(--bg-main)',
+              color: isPendingOnly ? 'white' : '#f97316',
+              border: `1px solid ${isPendingOnly ? '#f97316' : 'rgba(249, 115, 22, 0.4)'}`,
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '0.85rem',
+              cursor: 'pointer'
+            }}
+          >
+            {t('reviewPendingCount').replace('{count}', String(unvotedCount))}
+          </button>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Kategória:</span>
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            style={{
+              background: 'var(--bg-main)',
+              color: 'var(--text-title)',
+              border: '1px solid var(--border-main)',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '0.85rem',
+              outline: 'none',
+              cursor: 'pointer',
+              maxWidth: '160px'
+            }}
+          >
+            <option value="all">{t('reviewCatAll')} ({categoryCounts.all})</option>
+            <option value="portrait">{t('reviewCatPortrait')} ({categoryCounts.portrait})</option>
+            <option value="color">{t('reviewCatColor')} ({categoryCounts.color})</option>
+            <option value="monochrome">{t('reviewCatMonochrome')} ({categoryCounts.monochrome})</option>
+            <option value="nature">{t('reviewCatNature')} ({categoryCounts.nature})</option>
+          </select>
+        </div>
+
+        {isRoundClosed && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#f97316', whiteSpace: 'nowrap' }}>
+              Rendezés:
+            </span>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as any)}
+              style={{
+                background: 'var(--bg-main)',
+                color: 'var(--text-title)',
+                border: '1px solid #f97316',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                fontSize: '0.85rem',
+                outline: 'none',
+                cursor: 'pointer',
+                maxWidth: '180px'
+              }}
+            >
+              <option value="overall">Összesített</option>
+              <option value="members">Klubtagok</option>
+              <option value="masters">Mesterek</option>
+              <option value="ai">AI pontszám</option>
+            </select>
+          </div>
+        )}
+
+      </div>
+
+      {/* GALÉRIA */}
+      {sortedAndFilteredEntries.length === 0 ? (
+        <div style={{ padding: '40px 20px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
+          {isPendingOnly && !isRoundClosed
+            ? t('reviewEmptyPending')
+            : photoScope === 'my' 
+              ? t('reviewEmptyMy') 
+              : t('reviewEmptyFilter')}
         </div>
       ) : (
-        <div className="app-container" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)', color: 'var(--text-title)', fontFamily: 'Inter, sans-serif', width: '100%', maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
-          <Header user={headerUser} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} onLogout={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} />
-          <main className="app-main" style={{ width: '100%', maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<DashboardView user={headerUser} isLeader={!!isLeader} setActiveTab={setActiveTab} setTargetMapSpotId={setTargetMapSpotId} />} />
-              <Route path="/weekly_challenge" element={<WeeklyChallengeView user={user} setFullscreenData={setFullscreenData} />} />
-              <Route path="/profile" element={<ProfileView user={currentDbUser} setUser={setUser} fetchData={fetchData} />} />
-              <Route path="/tickets" element={<TicketsView user={currentDbUser} />} />
-              <Route path="/packages" element={<PackagesView user={user} />} />
-              <Route path="/marketplace" element={<MarketplaceRoot user={headerUser} />} />
-              <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
-              <Route path="/club_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="club" />} />
-              <Route path="/public_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="public" />} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '16px', boxSizing: 'border-box', width: '100%' }}>
+          {sortedAndFilteredEntries.map((entry, index) => {
+            const isMyPhoto = entry.user_email === user?.email;
+            const hasVoted = entry.my_score !== null && entry.my_score !== undefined;
+            const photoUrl = getImageUrl(entry.drive_file_id, entry.file_url);
 
-              <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
-              <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> 
-              <Route path="/fiap_progress" element={<FiapProgressView user={user} allUsers={allUsers} />} />
-              <Route path="/mafosz_progress" element={<MafoszProgressView user={user} allUsers={allUsers} />} />
-              <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={sortedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
-              <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
-              <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
-              <Route path="/podcast" element={<PodcastView />} />
-              <Route path="/club_weekly_review" element={<ClubWeeklyReviewView user={headerUser} onOpenCourses={() => navigate('/club_courses')} />} />
-              <Route path="/club_courses" element={<ClubCoursesView user={headerUser} onBack={() => navigate('/club_weekly_review')} />} />
-              
-              <Route path="/quiz" element={<QuizView user={headerUser} />} />
-              <Route path="/photo_history" element={<PhotoHistoryView user={headerUser} />} />
-              <Route path="/3d_gallery" element={<Gallery3DView user={headerUser} />} />
+            const isTop1 = isRoundClosed && index === 0;
+            const isTop2 = isRoundClosed && index === 1;
+            const isTop3 = isRoundClosed && index === 2;
 
-              <Route path="/admin_quiz" element={user?.email === ADMIN_EMAIL ? <AdminQuizView /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_points" element={user?.email === ADMIN_EMAIL ? <AdminPointsDashboard /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_salons" element={user?.email === ADMIN_EMAIL ? <AdminSalonsView salons={salons} countries={countries} allCategories={allCategories} patrons={patrons} BACKEND_URL={BACKEND_URL} fetchData={fetchData} setSelectedSalon={setSelectedSalon} /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_banned_emails" element={user?.email === ADMIN_EMAIL ? <AdminBannedEmailsView /> : <Navigate to="/dashboard" />} /> 
-              <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
-              <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
+            let cardBorder = '1px solid var(--border-main)';
+            let cardShadow = 'none';
 
-              <Route path="/admin_voter_analysis" element={user?.email === ADMIN_EMAIL ? <AdminVoterAnalysisView /> : <Navigate to="/dashboard" />} />
+            if (isTop1) {
+              cardBorder = '2px solid #f59e0b';
+              cardShadow = '0 0 15px rgba(245, 158, 11, 0.35)';
+            } else if (isTop2) {
+              cardBorder = '2px solid #cbd5e1';
+              cardShadow = '0 0 15px rgba(203, 213, 225, 0.3)';
+            } else if (isTop3) {
+              cardBorder = '2px solid #d97706';
+              cardShadow = '0 0 15px rgba(217, 119, 6, 0.3)';
+            }
 
-              {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
-                <Route key={path} path={path} element={
-                  <ContestsView 
-                    activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader} clubs={clubs} allUsers={allUsers} filteredContests={filteredContests} myEntries={myEntries} juryList={juryList} newTitle={newTitle} setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc} newStart={newStart} setNewStart={setNewStart} newEnd={newEnd} setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats} newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub} myJudgedContests={myJudgedContests} newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee} newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency} editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee} editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency} contestPayments={contestPayments} handlePayContestFee={handlePayContestFee} handleCreateContest={handleCreateContest} editContestId={editContestId} setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle} editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart} setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd} editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub} setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit} handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest} viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId} contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId} setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData} loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId} setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail} setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury} handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId} setViewResultsContestId={setViewResultsContestId} contestResults={contestResults} loadResults={loadResults} activeUploadContest={activeUploadContest} setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle} setUploadTitle={setUploadTitle} uploadCategory={uploadCategory} setUploadCategory={setUploadCategory} uploadPreview={uploadPreview} setUploadPreview={setUploadPreview} isUploading={isUploading} handleFileSelect={handleFileSelect} handleUpload={handleUpload} judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId} unvotedEntries={unvotedEntries} currentScore={currentScore} setCurrentScore={setCurrentScore} startJudging={startJudging} 
-                    submitVote={submitVote} 
-                    editingEntryId={editingEntryId} setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle} setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle} 
-                    handleDeleteEntry={handleDeleteContestEntry} 
-                    setFullscreenData={setFullscreenData} newCategorySettings={newCategorySettings} setNewCategorySettings={setNewCategorySettings} editCategorySettings={editCategorySettings} setEditCategorySettings={setEditCategorySettings} newSponsorClub={newSponsorClub} setNewSponsorClub={setNewSponsorClub} editSponsorClub={editSponsorClub} setEditSponsorClub={setEditSponsorClub} setActiveTab={setActiveTab} 
-                  />
-                } />
-              ))}
+            return (
+              <div 
+                key={entry.id} 
+                style={{ 
+                  background: 'var(--bg-card)', 
+                  border: cardBorder, 
+                  boxShadow: cardShadow,
+                  borderRadius: '12px', 
+                  overflow: 'hidden', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  justifyContent: 'space-between',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  maxWidth: '100%'
+                }}
+              >
+                
+                <div onClick={() => setSelectedEntryModal(entry)} style={{ position: 'relative', height: '210px', background: '#000', cursor: 'pointer', overflow: 'hidden' }}>
+                  <img src={photoUrl} alt={entry.title} referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  
+                  {isRoundClosed && index < 3 && (
+                    <div style={{ 
+                      position: 'absolute', 
+                      top: '10px', 
+                      left: '10px', 
+                      background: isTop1 ? '#f59e0b' : isTop2 ? '#cbd5e1' : '#d97706', 
+                      color: isTop1 ? '#0f172a' : isTop2 ? '#0f172a' : '#ffffff', 
+                      padding: '4px 10px', 
+                      borderRadius: '20px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 'bold', 
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                      zIndex: 2 
+                    }}>
+                      {index + 1}. Helyezett
+                    </div>
+                  )}
 
-              <Route path="/admin_contests" element={
-                (user?.email === ADMIN_EMAIL || isLeader) ? (
-                  <ContestsView 
-                    activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader} clubs={clubs} allUsers={allUsers} filteredContests={filteredContests} myEntries={myEntries} juryList={juryList} newTitle={newTitle} setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc} newStart={newStart} setNewStart={setNewStart} newEnd={newEnd} setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats} newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub} myJudgedContests={myJudgedContests} newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee} newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency} editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee} editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency} contestPayments={contestPayments} handlePayContestFee={handlePayContestFee} handleCreateContest={handleCreateContest} editContestId={editContestId} setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle} editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart} setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd} editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub} setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit} handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest} viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId} contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId} setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData} loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId} setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail} setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury} handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId} setViewResultsContestId={setViewResultsContestId} contestResults={contestResults} loadResults={loadResults} activeUploadContest={activeUploadContest} setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle} setUploadTitle={setUploadTitle} uploadCategory={uploadCategory} setUploadCategory={setUploadCategory} uploadPreview={uploadPreview} setUploadPreview={setUploadPreview} isUploading={isUploading} handleFileSelect={handleFileSelect} handleUpload={handleUpload} judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId} unvotedEntries={unvotedEntries} currentScore={currentScore} setCurrentScore={setCurrentScore} startJudging={startJudging} 
-                    submitVote={submitVote} 
-                    editingEntryId={editingEntryId} setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle} setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle} 
-                    handleDeleteEntry={handleDeleteContestEntry} 
-                    setFullscreenData={setFullscreenData} newCategorySettings={newCategorySettings} setNewCategorySettings={setNewCategorySettings} editCategorySettings={editCategorySettings} setEditCategorySettings={setEditCategorySettings} newSponsorClub={newSponsorClub} setNewSponsorClub={setNewSponsorClub} editSponsorClub={editSponsorClub} setEditSponsorClub={setEditSponsorClub} setActiveTab={setActiveTab} 
-                  />
-                ) : <Navigate to="/dashboard" replace />
-              } />
+                  {(isRoundClosed || isMyPhoto) && (
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', color: '#fbbf24', fontWeight: 'bold', zIndex: 2 }}>
+                      AI: {entry.ai_score} / 100 p
+                    </div>
+                  )}
+                </div>
 
-              <Route path="/club_homeworks" element={<ClubHomeworksView user={user} currentDbUser={currentDbUser} myClubHomeworks={myClubHomeworks} myHomeworkEntries={myHomeworkEntries} clubHomeworkEntries={clubHomeworkEntries} isLeader={!!isLeader} setFullscreenData={setFullscreenData} fetchMyEntries={fetchMyEntries} fetchClubHomeworkEntries={fetchClubHomeworkEntries} clubs={clubs} onToggleLike={handleToggleLike} handleToggleLike={handleToggleLike} />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </main>
-          <SessionGuard logoutUser={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} />
+                <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box', width: '100%', minWidth: 0 }}>
+                  <div style={{ width: '100%', minWidth: 0 }}>
+                    <h3 style={{ margin: '0 0 2px 0', color: 'var(--text-title)', fontSize: '1rem', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{entry.title}</h3>
+                    <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '8px', fontSize: '0.8rem', wordBreak: 'break-word' }}>{t('archivePhotographer')}: {entry.user_name}</small>
+
+                    {isRoundClosed && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', background: 'var(--bg-main)', padding: '8px 2px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '10px', boxSizing: 'border-box', width: '100%' }}>
+                        
+                        <div style={{ padding: '2px', overflow: 'hidden' }}>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.62rem', fontWeight: 'bold', display: 'block', whiteSpace: 'nowrap' }}>Tagok</span>
+                          <div style={{ color: '#38bdf8', fontWeight: '800', fontSize: '0.8rem', marginTop: '2px' }}>
+                            {entry.memberRank}/{entry.totalEntriesCount}
+                          </div>
+                          <small style={{ color: 'var(--text-muted)', fontSize: '0.6rem', display: 'block' }}>
+                            {Number(entry.avg_member_score).toFixed(1)}p
+                          </small>
+                        </div>
+
+                        <div style={{ borderLeft: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)', padding: '2px', overflow: 'hidden' }}>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.62rem', fontWeight: 'bold', display: 'block', whiteSpace: 'nowrap' }}>Mesterek</span>
+                          <div style={{ color: '#f59e0b', fontWeight: '800', fontSize: '0.8rem', marginTop: '2px' }}>
+                            {entry.masterRank}/{entry.totalEntriesCount}
+                          </div>
+                          <small style={{ color: 'var(--text-muted)', fontSize: '0.6rem', display: 'block' }}>
+                            {Number(entry.avg_master_score).toFixed(1)}p
+                          </small>
+                        </div>
+
+                        <div style={{ borderRight: '1px solid var(--border-main)', padding: '2px', overflow: 'hidden' }}>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.62rem', fontWeight: 'bold', display: 'block', whiteSpace: 'nowrap' }}>AI</span>
+                          <div style={{ color: '#a78bfa', fontWeight: '800', fontSize: '0.8rem', marginTop: '2px' }}>
+                            {entry.aiRank}/{entry.totalEntriesCount}
+                          </div>
+                          <small style={{ color: 'var(--text-muted)', fontSize: '0.6rem', display: 'block' }}>
+                            {entry.ai_score}p
+                          </small>
+                        </div>
+
+                        <div style={{ background: 'rgba(249, 115, 22, 0.12)', borderRadius: '4px', padding: '2px', overflow: 'hidden' }}>
+                          <span style={{ color: '#f97316', fontSize: '0.62rem', fontWeight: 'bold', display: 'block', whiteSpace: 'nowrap' }}>Összes</span>
+                          <div style={{ color: '#f97316', fontWeight: '800', fontSize: '0.82rem', marginTop: '2px' }}>
+                            {entry.overallRank}/{entry.totalEntriesCount}
+                          </div>
+                          <small style={{ color: '#f97316', fontSize: '0.6rem', display: 'block' }}>
+                            {Number(entry.combinedScore || 0).toFixed(0)}%
+                          </small>
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+
+                  {isRoundClosed ? (
+                    <div style={{ background: 'var(--bg-main)', color: 'var(--text-muted)', padding: '6px', borderRadius: '6px', fontSize: '0.78rem', textAlign: 'center', fontWeight: 'bold' }}>
+                      {t('reviewStatusClosed')}
+                    </div>
+                  ) : isMyPhoto ? (
+                    <div style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', padding: '6px', borderRadius: '6px', fontSize: '0.78rem', textAlign: 'center', fontWeight: 'bold' }}>
+                      {t('reviewStatusOwn')}
+                    </div>
+                  ) : hasVoted ? (
+                    <div style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem', textAlign: 'center', fontWeight: 'bold' }}>
+                      {t('reviewStatusVoted').replace('{score}', String(entry.my_score))}
+                    </div>
+                  ) : (
+                    <div style={{ width: '100%' }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 'bold' }}>
+                        {checkIsMaster ? 'Mester Pont (1 - 10):' : 'Tagi Pont (0 - 2):'}
+                      </label>
+
+                      {checkIsMaster ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', width: '100%' }}>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => (
+                            <button key={p} onClick={() => handleRate(entry.id, p)} style={{ padding: '6px 0', borderRadius: '4px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                          {[0, 1, 2].map(p => (
+                            <button key={p} onClick={() => handleRate(entry.id, p)} style={{ flex: 1, padding: '6px 0', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                              {p} p
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-    </>
-  );
-}
 
-export default function App() {
-  return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <ThemeProvider>
-        <LanguageProvider>
-          <BrowserRouter>
-            <MainContent />
-          </BrowserRouter>
-        </LanguageProvider>
-      </ThemeProvider>
-    </GoogleOAuthProvider>
+      {/* MODÁL KÉP RÉSZLETEK */}
+      {activeModalRankedEntry && (() => {
+        const isMyModalPhoto = activeModalRankedEntry.user_email === user?.email;
+        const canShowAi = isRoundClosed || isMyModalPhoto;
+
+        return (
+          <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px', boxSizing: 'border-box' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '16px', maxWidth: '1000px', width: '100%', maxHeight: '92vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 25px 60px rgba(0,0,0,0.9)', position: 'relative', boxSizing: 'border-box' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-main)', paddingBottom: '10px', flexShrink: 0 }}>
+                <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.1rem', fontWeight: 800, wordBreak: 'break-word', paddingRight: '10px' }}>{activeModalRankedEntry.title}</h3>
+                <button 
+                  onClick={() => setSelectedEntryModal(null)} 
+                  style={{ 
+                    background: 'rgba(255, 255, 255, 0.1)', 
+                    border: 'none', 
+                    color: '#ffffff', 
+                    cursor: 'pointer', 
+                    borderRadius: '50%', 
+                    width: '32px', 
+                    height: '32px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: '1rem', 
+                    fontWeight: 'bold',
+                    flexShrink: 0
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#020617', borderRadius: '10px', padding: '8px', boxSizing: 'border-box', overflow: 'hidden', flexShrink: 0 }}>
+                <img 
+                  src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} 
+                  alt={activeModalRankedEntry.title} 
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '50vh', 
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain', 
+                    borderRadius: '6px',
+                    display: 'block'
+                  }} 
+                />
+              </div>
+
+              {isRoundClosed && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', background: 'var(--bg-main)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', boxSizing: 'border-box', width: '100%' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: 'bold', display: 'block' }}>Klubtagok</span>
+                    <div style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '0.95rem', marginTop: '2px' }}>
+                      {activeModalRankedEntry.memberRank}/{activeModalRankedEntry.totalEntriesCount}
+                    </div>
+                  </div>
+
+                  <div style={{ borderLeft: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: 'bold', display: 'block' }}>Mesterek</span>
+                    <div style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '0.95rem', marginTop: '2px' }}>
+                      {activeModalRankedEntry.masterRank}/{activeModalRankedEntry.totalEntriesCount}
+                    </div>
+                  </div>
+
+                  <div style={{ borderRight: '1px solid var(--border-main)' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: 'bold', display: 'block' }}>AI</span>
+                    <div style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '0.95rem', marginTop: '2px' }}>
+                      {activeModalRankedEntry.aiRank}/{activeModalRankedEntry.totalEntriesCount}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(249, 115, 22, 0.12)', borderRadius: '4px', padding: '2px' }}>
+                    <span style={{ color: '#f97316', fontSize: '0.65rem', fontWeight: 'bold', display: 'block' }}>Összes</span>
+                    <div style={{ color: '#f97316', fontWeight: 'bold', fontSize: '0.95rem', marginTop: '2px' }}>
+                      {activeModalRankedEntry.overallRank}/{activeModalRankedEntry.totalEntriesCount}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {canShowAi ? (
+                <>
+                  <div style={{ background: 'var(--bg-main)', padding: '12px', borderRadius: '8px', border: '1px solid #a78bfa' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                        AI Szakmai Értékelés (FIAP)
+                      </span>
+                      <span style={{ background: '#a78bfa', color: '#0f172a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                        {activeModalRankedEntry.ai_score} / 100 P
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.85rem', lineHeight: '1.5', wordBreak: 'break-word' }}>{activeModalRankedEntry.ai_feedback}</p>
+                  </div>
+
+                  {activeModalRankedEntry.course_title && (
+                    <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <div>
+                        <small style={{ color: '#10b981', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>Javasolt klubtanfolyam:</small>
+                        <strong style={{ color: 'var(--text-title)', fontSize: '0.9rem' }}>{activeModalRankedEntry.course_title}</strong>
+                      </div>
+                      {onOpenCourses && (
+                        <button onClick={() => { setSelectedEntryModal(null); onOpenCourses(); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                          Megtekintés
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '12px', background: 'var(--bg-main)', borderRadius: '8px', fontSize: '0.82rem' }}>
+                  A részletes AI értékelések a heti forduló lezárultával válnak láthatóvá.
+                </div>
+              )}
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* SÚGÓ MODÁL */}
+      {showHelpModal && (
+        <div onClick={() => setShowHelpModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '12px', boxSizing: 'border-box' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '20px', maxWidth: '680px', width: '100%', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', boxSizing: 'border-box' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>
+              <h3 style={{ margin: 0, color: '#a78bfa', fontSize: '1.2rem' }}>
+                {t('reviewHelpTitle')}
+              </h3>
+              <button onClick={() => setShowHelpModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', color: 'var(--text-body)', fontSize: '0.88rem', lineHeight: '1.5' }}>
+              <div style={{ background: 'var(--bg-main)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-main)' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '0.98rem' }}>
+                  {t('reviewHelpWhatTitle')}
+                </h4>
+                {t('reviewHelpWhatDesc')}
+              </div>
+
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', color: '#38bdf8', fontSize: '0.95rem' }}>
+                  {t('reviewHelpScheduleTitle')}
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  <li>{t('reviewHelpSchedule1')}</li>
+                  <li>{t('reviewHelpSchedule2')}</li>
+                  <li>{t('reviewHelpSchedule3')}</li>
+                </ul>
+              </div>
+
+              <div style={{ background: 'var(--bg-main)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-main)' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: '#10b981', fontSize: '0.98rem' }}>
+                  {t('reviewHelpRankTitle')}
+                </h4>
+                {t('reviewHelpRankDesc')}
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: '20px', paddingTop: '12px', borderTop: '1px solid var(--border-main)' }}>
+              <button onClick={() => setShowHelpModal(false)} style={{ background: '#a78bfa', color: '#0f172a', border: 'none', padding: '8px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                {t('reviewHelpGotIt')}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODÁL: KÉP FELTÖLTÉSE */}
+      {showUploadModal && (
+        <div onClick={() => setShowUploadModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '12px', boxSizing: 'border-box' }}>
+          <form onClick={e => e.stopPropagation()} onSubmit={handleUpload} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '20px', maxWidth: '480px', width: '100%', display: 'flex', flexDirection: 'column', gap: '12px', boxSizing: 'border-box' }}>
+            <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.2rem' }}>{t('reviewBtnUpload')}</h3>
+
+            <div>
+              <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px' }}>Kép Címe *</label>
+              <input type="text" value={photoTitle} onChange={e => setPhotoTitle(e.target.value)} required placeholder="pl.: Hajnali csend" style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px' }}>Fotó Kiválasztása *</label>
+              <input type="file" accept="image/*" onChange={handleFileSelect} required style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', fontSize: '0.8rem', boxSizing: 'border-box' }} />
+            </div>
+
+            {uploadPreview && (
+              <div style={{ textAlign: 'center', background: '#000', borderRadius: '8px', padding: '8px' }}>
+                <img src={uploadPreview} alt="Előnézet" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ maxHeight: '160px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px' }} />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+              <button type="button" onClick={() => setShowUploadModal(false)} style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Mégse</button>
+              <button type="submit" disabled={isUploading || !uploadFile} style={{ background: '#f97316', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', opacity: isUploading || !uploadFile ? 0.6 : 1, fontSize: '0.85rem' }}>
+                {isUploading ? 'Feltöltés...' : 'Beküldés & AI'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+    </div>
   );
 }
