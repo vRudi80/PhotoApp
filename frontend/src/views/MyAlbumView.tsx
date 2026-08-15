@@ -332,7 +332,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         {uploadPreview && (
           <div style={{ marginTop: '12px' }}>
             <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>{t('albumPreviewLabel') || 'Kiválasztott kép előnézete:'}</div>
-            <img src={uploadPreview} alt="Preview" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid #334155', objectFit: 'contain' }} />
+            <img src={uploadPreview} alt="Preview" referrerPolicy="no-referrer" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid #334155', objectFit: 'contain' }} />
           </div>
         )}
       </div>
@@ -404,7 +404,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
             }}>
               
               <div style={{ height: '190px', width: '100%', background: '#000000', cursor: 'zoom-in', position: 'relative' }} onClick={() => setFullscreenData({url: imageUrl, title: photo.title})}>
-                <img src={imageUrl} alt={photo.title} referrerPolicy="no-referrer" crossOrigin="anonymous" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <img src={imageUrl} alt={photo.title} referrerPolicy="no-referrer" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 {hasAward && <div style={{ position: 'absolute', top: '8px', right: '8px', background: '#f59e0b', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 'bold', zIndex: 5 }}>AWARD</div>}
                 {!hasAward && hasAcceptance && <div style={{ position: 'absolute', top: '8px', right: '8px', background: '#10b981', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 'bold', zIndex: 5 }}>ACC</div>}
               </div>
