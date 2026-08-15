@@ -3,7 +3,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import { GOOGLE_CLIENT_ID, BACKEND_URL, ADMIN_EMAIL } from './utils/constants';
 import { getImageUrl } from './utils/helpers';
-import LoginScreen from './components/LoginScreen';
+import LoginScreen from '../components/LoginScreen';
 import { FullscreenModal, VideoModal } from './components/Modals';
 import Header from './components/Header';
 import SalonModal from './components/SalonModal';
