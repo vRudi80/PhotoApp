@@ -3,8 +3,6 @@ import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall';
 import VideoLoader from '../components/VideoLoader';
-
-// Nyelvi kontextus beemelése
 import { useLanguage } from '../context/LanguageContext';
 
 interface MyAlbumViewProps {
@@ -12,7 +10,6 @@ interface MyAlbumViewProps {
   setFullscreenData: (data: {url: string, title?: string}) => void;
 }
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -22,7 +19,6 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProps) {
-  // Nyelvi hookok aktiválása
   const { t, lang } = useLanguage();
 
   const [photos, setPhotos] = useState<any[]>([]);
@@ -56,27 +52,24 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     : (lang === 'en' ? 'Basic Premium (1 GB)' : 'Alap Premium (1 GB)');
 
   const fetchMyPhotos = async () => {
-    if (!hasPremiumAccess) {
+    if (!hasPremiumAccess || !user?.email) {
       setIsLoading(false);
       return;
     }
 
     try {
-      // 🎯 JAVÍTVA: Az albumlista lekérése megkapta a biztonsági tokent
-      const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`, {
+      const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user.email)}`, {
         headers: getAuthHeaders()
       });
       if (res.ok) {
         setPhotos(await res.json());
         
-        // 🎯 JAVÍTVA: A szaloneredmények lekérése megkapta a biztonsági tokent
-        const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`, {
+        const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${encodeURIComponent(user.email)}`, {
           headers: getAuthHeaders()
         });
         if (resResults.ok) setPhotoResults(await resResults.json());
       }
 
-      // 🎯 JAVÍTVA: A globális tárhelystatisztika lekérése megkapta a biztonsági tokent
       const resStats = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`, {
         headers: getAuthHeaders()
       });
@@ -121,14 +114,14 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
-// 🎯 HIÁNYZÓ FÁJLVÁLASZTÓ FÜGGVÉNY BEILLESZTÉSE
-const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  if (e.target.files && e.target.files[0]) {
-    const file = e.target.files[0];
-    setUploadFile(file);
-    setUploadPreview(URL.createObjectURL(file));
-  }
-};
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setUploadFile(file);
+      setUploadPreview(URL.createObjectURL(file));
+    }
+  };
   
   const handleDownload = (photo: any) => {
     if (photo.file_size === -1 || !photo.drive_file_id || photo.drive_file_id.length < 15 || photo.drive_file_id.includes('http')) {
@@ -159,7 +152,6 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       formData.append('userEmail', user.email);
       if (editFile) formData.append('photo', editFile);
 
-      // 🎯 JAVÍTVA: Kép adatainak módosítása hitelesített tokennel (Content-Type-ot a böngésző kezeli!)
       const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { 
         method: 'PUT', 
         headers: getAuthHeaders(),
@@ -176,7 +168,6 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const handleDelete = async (photoId: number) => {
     if (!window.confirm(t('msgAlbumDeleteConfirm') || "Biztosan törlöd?")) return;
     try {
-      // 🎯 JAVÍTVA: Fotó végleges törlése hitelesített tokennel és JSON tartalommal
       const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { 
         method: 'DELETE', 
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
@@ -187,36 +178,36 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   };
 
   const handleAnalyzePhoto = async (photoId: number) => {
-  setAnalyzingPhotoId(photoId);
+    setAnalyzingPhotoId(photoId);
 
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, { 
-      method: 'POST', 
-      headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
-      body: JSON.stringify({ userEmail: user.email }) 
-    });
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, { 
+        method: 'POST', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+        body: JSON.stringify({ userEmail: user.email }) 
+      });
 
-    if (res.status === 401 || res.status === 403) {
-      localStorage.removeItem('photoAppToken');
-      localStorage.removeItem('user');
-      alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
-      window.location.href = '/';
-      return;
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('photoAppToken');
+        localStorage.removeItem('user');
+        alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
+        window.location.href = '/';
+        return;
+      }
+
+      if (res.ok) {
+        fetchMyPhotos();
+      } else { 
+        const data = await res.json().catch(() => ({})); 
+        alert(`Szerveroldali hiba történt az AI elemzés során:\n\n${data.error || 'Ismeretlen hiba'}`); 
+      }
+    } catch (e: any) { 
+      alert(`Hálózati hiba lépett fel az AI elemzés során.`); 
+    } finally { 
+      setAnalyzingPhotoId(null); 
     }
+  };
 
-    if (res.ok) {
-      fetchMyPhotos();
-    } else { 
-      const data = await res.json().catch(() => ({})); 
-      alert(`Szerveroldali hiba történt az AI elemzés során:\n\n${data.error || 'Ismeretlen hiba'}`); 
-    }
-  } catch (e: any) { 
-    alert(`Hálózati hiba lépett fel az AI elemzés során. Kérlek ellenőrizd az internetkapcsolatot!`); 
-  } finally { 
-    // 🎯 GARANTÁLTAN LEÁLLÍTJA A TÖLTŐIKONT BÁRMILYEN HIBA / LEJÁRAT ESETÉN!
-    setAnalyzingPhotoId(null); 
-  }
-};
   const handleUpload = async () => {
     if (!uploadFile || !uploadTitle) return alert(t('msgAlbumUploadRequired') || "Kép és cím megadása kötelező!");
     if (totalSizeInBytes + uploadFile.size > maxStorageBytes) {
@@ -233,7 +224,6 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       formData.append('title', uploadTitle);
       formData.append('title_hu', uploadTitleHu); 
 
-      // 🎯 JAVÍTVA: Új portfólió fotó feltöltése érvényes tokennel (Content-Type nélkül!)
       const res = await fetch(`${BACKEND_URL}/api/my-album/upload`, { 
         method: 'POST', 
         headers: getAuthHeaders(),
@@ -254,9 +244,9 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
   if (!hasPremiumAccess) {
     return (
-      <div>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
-          <span style={{ fontSize: '2.5rem' }}>🖼️</span> {t('albumTitle') || 'Saját Képalbum (Portfólió)'}
+      <div style={{ width: '100%', boxSizing: 'border-box' }}>
+        <h2 style={{ fontSize: '1.8rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', color: '#60a5fa', wordBreak: 'break-word' }}>
+          <span>🖼️</span> {t('albumTitle') || 'Saját Képalbum (Portfólió)'}
         </h2>
         <PremiumPaywall user={user} />
       </div>
@@ -268,24 +258,24 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   }
 
   return (
-    <div>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
+    <div style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100vw', overflowX: 'hidden' }}>
+      <h2 style={{ fontSize: '1.8rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', color: '#60a5fa', wordBreak: 'break-word' }}>
         {t('albumTitle')}
       </h2>
 
       {/* --- FOLYAMATJELZŐ SÁV --- */}
-      <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+      <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.2)', boxSizing: 'border-box', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
           <div>
-            <span style={{ color: '#cbd5e1', fontSize: '1rem' }}>{t('albumPackageLabel') || 'Csomagod: '}</span>
-            <strong style={{ color: premiumLevel >= 2 ? '#818cf8' : '#38bdf8', fontSize: '1.1rem' }}>{packageName}</strong>
+            <span style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>{t('albumPackageLabel') || 'Csomagod: '}</span>
+            <strong style={{ color: premiumLevel >= 2 ? '#818cf8' : '#38bdf8', fontSize: '1rem' }}>{packageName}</strong>
           </div>
-          <div style={{ color: '#94a3b8', fontSize: '0.95rem' }}>
+          <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
             {t('albumPortfolioLabel') || 'Portfólió: '} <strong style={{ color: '#f8fafc' }}>{formatExactStorage(totalSizeInBytes)}</strong> / {formatExactStorage(maxStorageBytes)}
           </div>
         </div>
 
-        <div style={{ width: '100%', background: '#0f172a', height: '14px', borderRadius: '100px', overflow: 'hidden', border: '1px solid #475569' }}>
+        <div style={{ width: '100%', background: '#0f172a', height: '12px', borderRadius: '100px', overflow: 'hidden', border: '1px solid #475569' }}>
           <div style={{ 
             width: `${storagePercent}%`, 
             background: storagePercent > 90 ? '#ef4444' : storagePercent > 70 ? '#f59e0b' : (premiumLevel >= 2 ? '#818cf8' : '#10b981'), 
@@ -294,7 +284,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           }}></div>
         </div>
         
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', fontSize: '0.85rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '0.8rem', flexWrap: 'wrap', gap: '6px' }}>
           <span style={{ color: '#64748b' }}>{t('albumTotalCloudLabel') || 'Teljes felhő foglalásod: '} <strong>{formatExactStorage(totalAccountBytes)}</strong></span>
           {storagePercent > 90 && (
             <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{t('albumStorageWarning') || '⚠️ A portfólió tárhelyed majdnem betelt!'}</span>
@@ -302,70 +292,67 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         </div>
       </div>
 
-      <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
-        <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>{t('albumAddPhotoTitle') || '📤 Új fotó hozzáadása a portfólióhoz'}</h3>
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div style={{ flex: '1 1 250px' }}>
-            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>{t('albumPhotoTitleLabel') || 'Fénykép címe (Angol/Eredeti)'}</label>
+      <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850', boxSizing: 'border-box', width: '100%' }}>
+        <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.1rem' }}>{t('albumAddPhotoTitle') || '📤 Új fotó hozzáadása a portfólióhoz'}</h3>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end', width: '100%' }}>
+          <div style={{ flex: '1 1 240px', minWidth: 0, maxWidth: '100%' }}>
+            <label style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>{t('albumPhotoTitleLabel') || 'Fénykép címe (Angol/Eredeti)'}</label>
             <input 
               type="text" 
               placeholder="Pl. Magányos fa a ködben" 
               value={uploadTitle} 
               onChange={e => setUploadTitle(e.target.value)} 
-              style={{ width: '100%', padding: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box', marginBottom: '8px' }}
+              style={{ width: '100%', padding: '8px 10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box', marginBottom: '6px', fontSize: '0.85rem' }}
             />
             <input 
               type="text" 
               placeholder="Magyar cím (Opcionális)" 
               value={uploadTitleHu} 
               onChange={e => setUploadTitleHu(e.target.value)} 
-              style={{ width: '100%', padding: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box', fontSize: '0.85rem' }}
             />
           </div>
-          <div style={{ flex: '1 1 250px' }}>
-            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>{t('albumSelectFileLabel') || 'Fájl kiválasztása'}</label>
+          <div style={{ flex: '1 1 240px', minWidth: 0, maxWidth: '100%' }}>
+            <label style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>{t('albumSelectFileLabel') || 'Fájl kiválasztása'}</label>
             <input 
               type="file" 
               accept="image/*"
               onChange={handleFileChange} 
-              style={{ width: '100%', color: '#cbd5e1', fontSize: '0.9rem' }}
+              style={{ width: '100%', color: '#cbd5e1', fontSize: '0.8rem', boxSizing: 'border-box' }}
             />
           </div>
           <button 
             onClick={handleUpload} 
             disabled={isUploading || storagePercent >= 100} 
-            style={{ background: storagePercent >= 100 ? '#475569' : '#10b981', color: storagePercent >= 100 ? '#94a3b8' : 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: isUploading || storagePercent >= 100 ? 'not-allowed' : 'pointer', fontWeight: 'bold', height: '42px', marginBottom: '10px' }}
+            style={{ background: storagePercent >= 100 ? '#475569' : '#10b981', color: storagePercent >= 100 ? '#94a3b8' : 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: isUploading || storagePercent >= 100 ? 'not-allowed' : 'pointer', fontWeight: 'bold', height: '38px', fontSize: '0.85rem', width: '100%' }}
           >
             {isUploading ? `⏳ ${t('albumUploading') || 'Feltöltés...'}` : `🚀 ${t('albumUploadBtn') || 'Kép Feltöltése'}`}
           </button>
         </div>
         {uploadPreview && (
-          <div style={{ marginTop: '15px' }}>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '5px' }}>{t('albumPreviewLabel') || 'Kiválasztott kép előnézete:'}</div>
-            <img src={uploadPreview} alt="Preview" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid #334155', objectFit: 'contain' }} />
+          <div style={{ marginTop: '12px' }}>
+            <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>{t('albumPreviewLabel') || 'Kiválasztott kép előnézete:'}</div>
+            <img src={uploadPreview} alt="Preview" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid #334155', objectFit: 'contain' }} />
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
-        <div style={{ display: 'flex', gap: '20px' }}>
-          {searchTerm && (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#38bdf8' }}>{filteredPhotos.length} / {photos.length}</div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>{t('albumSearchResultLabel') || 'Keresési találat'}</div>
-            </div>
-          )}
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px', border: '1px solid #334155', flexWrap: 'wrap', gap: '10px', boxSizing: 'border-box', width: '100%' }}>
+        {searchTerm && (
+          <div style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 'bold' }}>
+            Találatok: {filteredPhotos.length} / {photos.length}
+          </div>
+        )}
         <input 
           type="text" 
           placeholder={t('albumSearchPlaceholder') || "🔍 Keresés a képeid között..."} 
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
-          style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '300px', outline: 'none' }}
+          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', width: '100%', outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box' }}
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px', boxSizing: 'border-box', width: '100%' }}>
         {filteredPhotos.map(photo => {
           const imageUrl = getImageUrl(photo.drive_file_id, photo.file_url);
           const isUpdatingThis = updatingPhotoId === photo.id;
@@ -384,7 +371,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           
           if (hasAward) {
             borderColor = '#f59e0b';
-            borderWeight = '3px';
+            borderWeight = '2px';
           } else if (hasAcceptance) {
             borderColor = '#10b981';
             borderWeight = '2px';
@@ -411,63 +398,63 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               flexDirection: 'column', 
               opacity: isUpdatingThis || isAnalyzingThis ? 0.6 : 1, 
               transition: 'all 0.3s ease',
-              boxShadow: hasAward ? '0 0 15px rgba(245, 158, 11, 0.2)' : 'none'
+              boxSizing: 'border-box',
+              width: '100%',
+              maxWidth: '100%'
             }}>
               
-              <div style={{ height: '200px', width: '100%', background: '#000000', cursor: 'zoom-in', position: 'relative' }} onClick={() => setFullscreenData({url: imageUrl, title: photo.title})}>
-                <img src={imageUrl} alt={photo.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                {hasAward && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#f59e0b', color: '#0f172a', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', zIndex: 5, boxShadow: '-2px 2px 5px rgba(0,0,0,0.4)' }}>AWARD</div>}
-                {!hasAward && hasAcceptance && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', zIndex: 5, boxShadow: '-2px 2px 5px rgba(0,0,0,0.4)' }}>ACC</div>}
+              <div style={{ height: '190px', width: '100%', background: '#000000', cursor: 'zoom-in', position: 'relative' }} onClick={() => setFullscreenData({url: imageUrl, title: photo.title})}>
+                <img src={imageUrl} alt={photo.title} referrerPolicy="no-referrer" crossOrigin="anonymous" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                {hasAward && <div style={{ position: 'absolute', top: '8px', right: '8px', background: '#f59e0b', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 'bold', zIndex: 5 }}>AWARD</div>}
+                {!hasAward && hasAcceptance && <div style={{ position: 'absolute', top: '8px', right: '8px', background: '#10b981', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 'bold', zIndex: 5 }}>ACC</div>}
               </div>
               
-              <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+              <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, boxSizing: 'border-box', width: '100%' }}>
                 
                 <div 
-                  title={photo.title}
-                  style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '2px', wordBreak: 'break-word', overflowWrap: 'break-word' }}
                 >
                   {photo.title || 'Untitled'}
                 </div>
                 
                 <div 
-                  title={photo.title_hu}
-                  style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px', wordBreak: 'break-word', overflowWrap: 'break-word' }}
                 >
                   {photo.title_hu || '—'}
                 </div>
                 
                 {entryCount > 0 && (
-                  <div style={{ display: 'flex', gap: '10px', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '12px', fontWeight: 'bold' }}>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '10px', fontWeight: 'bold' }}>
                     <span title={t('albumTotalEntriesTooltip') || "Összes nevezés"}>📁 {entryCount}</span>
-                    {awardCount > 0 && <span style={{ color: '#f59e0b' }} title={t('albumAwardsTooltip') || "Díjak száma"}>🏆 {awardCount} award</span>}
-                    {acceptanceCount > 0 && <span style={{ color: '#10b981' }} title={t('albumAcceptancesTooltip') || "Elfogadások száma"}>✅ {acceptanceCount} acc</span>}
+                    {awardCount > 0 && <span style={{ color: '#f59e0b' }}>🏆 {awardCount}</span>}
+                    {acceptanceCount > 0 && <span style={{ color: '#10b981' }}>✅ {acceptanceCount}</span>}
                   </div>
                 )}
 
-                <details style={{ marginBottom: '15px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
-                  <summary style={{ padding: '10px 12px', fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
+                <details style={{ marginBottom: '12px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
+                  <summary style={{ padding: '8px 10px', fontSize: '0.72rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', cursor: 'pointer', outline: 'none' }}>
                     {t('albumAiEvaluationTitle') || '🤖 AI Zsűri Értékelése'}
                   </summary>
-                  <div style={{ padding: '0 12px 12px 12px' }}>
+                  <div style={{ padding: '0 10px 10px 10px' }}>
                     {photo.ai_tags ? (
                       <>
                         {isJson && aiData ? (
                           <>
-                            <p style={{ fontSize: '0.9rem', color: '#e2e8f0', lineHeight: '1.5', margin: '0 0 12px 0', fontStyle: 'italic' }}>
+                            <p style={{ fontSize: '0.85rem', color: '#e2e8f0', lineHeight: '1.4', margin: '0 0 10px 0', fontStyle: 'italic', wordBreak: 'break-word' }}>
                               "{aiData.evaluation}"
                             </p>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '15px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
                               {aiData.tags && aiData.tags.split(',').map((tag: string, idx: number) => (
-                                <span key={idx} style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#0f172a', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>
+                                <span key={idx} style={{ fontSize: '0.68rem', color: '#94a3b8', background: '#0f172a', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>
                                   {tag.trim()}
                                 </span>
                               ))}
                             </div>
                           </>
                         ) : (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '15px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
                             {photo.ai_tags.split(',').map((tag: string, idx: number) => (
-                              <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
+                              <span key={idx} style={{ fontSize: '0.68rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
                                 {tag.trim()}
                               </span>
                             ))}
@@ -477,20 +464,20 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <button 
                           onClick={() => handleAnalyzePhoto(photo.id)} 
                           disabled={isAnalyzingThis}
-                          style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                          style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '6px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
                         >
-                          {isAnalyzingThis ? `⏳ ${t('albumAiAnalyzing') || 'Elemzés folyamatban...'}` : `🤖 ${t('albumAiReanalyzeBtn') || 'AI Újraelemzés Kérése'}`}
+                          {isAnalyzingThis ? `⏳ ${t('albumAiAnalyzing') || 'Elemzés...'}` : `🤖 ${t('albumAiReanalyzeBtn') || 'AI Újraelemzés'}`}
                         </button>
                       </>
                     ) : (
-                      <div style={{ textAlign: 'center', padding: '10px 0' }}>
-                        <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '10px' }}>{t('albumAiNotEvaluated') || 'Ezt a képet még nem értékelte a mesterséges intelligencia.'}</p>
+                      <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                        <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '8px' }}>Még nincs AI értékelés.</p>
                         <button 
                           onClick={() => handleAnalyzePhoto(photo.id)} 
                           disabled={isAnalyzingThis}
-                          style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                          style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '6px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
                         >
-                          {isAnalyzingThis ? `⏳ ${t('albumAiAnalyzing') || 'Elemzés folyamatban...'}` : `🤖 ${t('albumAiStartAnalyzeBtn') || 'AI Elemzés Indítása'}`}
+                          {isAnalyzingThis ? `⏳ ${t('albumAiAnalyzing') || 'Elemzés...'}` : `🤖 ${t('albumAiStartAnalyzeBtn') || 'AI Elemzés Indítása'}`}
                         </button>
                       </div>
                     )}
@@ -498,27 +485,19 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 </details>
 
                 {currentPhotoResults.length > 0 && !editingPhotoId && (
-                  <details style={{ marginBottom: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
-                    <summary style={{ padding: '10px', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
-                      🎖️ {t('albumSalonResultsTitle') || 'Eredmények szalonokban'} ({entryCount})
+                  <details style={{ marginBottom: '12px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                    <summary style={{ padding: '8px', fontSize: '0.72rem', color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', outline: 'none' }}>
+                      🎖️ Szaloneredmények ({entryCount})
                     </summary>
-                    <div style={{ padding: '0 10px 10px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ padding: '0 8px 8px 8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {currentPhotoResults.map((res, i) => {
                         const isAcc = res.award_name && res.award_name.toLowerCase() === 'acceptance';
                         return (
-                          <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.3', paddingBottom: '6px', borderBottom: i < currentPhotoResults.length - 1 ? '1px solid #1e293b' : 'none' }}>
-                            <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>
-                            <br/>
-                            {res.award_name && (
-                              <span style={{ color: isAcc ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
-                                {res.award_name}
-                              </span>
-                            )}
-                            {res.achieved_score !== null && (
-                              <span style={{ color: '#94a3b8', marginLeft: '5px' }}>
-                                ({res.achieved_score} / {res.acceptance_score || '?'})
-                              </span>
-                            )}
+                          <div key={i} style={{ fontSize: '0.78rem', color: '#cbd5e1', paddingBottom: '4px', borderBottom: i < currentPhotoResults.length - 1 ? '1px solid #1e293b' : 'none', wordBreak: 'break-word' }}>
+                            <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>: 
+                            <span style={{ color: isAcc ? '#10b981' : '#f59e0b', fontWeight: 'bold', marginLeft: '4px' }}>
+                              {res.award_name || '—'}
+                            </span>
                           </div>
                         );
                       })}
@@ -527,44 +506,44 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 )}
                 
                 {editingPhotoId === photo.id ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', width: '100%' }}>
                     <input 
                       value={editTitle} 
                       onChange={e => setEditTitle(e.target.value)} 
-                      placeholder="Cím (Angol/Eredeti)"
-                      style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} 
+                      placeholder="Cím (Angol)"
+                      style={{ width: '100%', padding: '6px 8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box', fontSize: '0.82rem' }} 
                     />
                     <input 
                       value={editTitleHu} 
                       onChange={e => setEditTitleHu(e.target.value)} 
                       placeholder="Cím (Magyar)"
-                      style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} 
+                      style={{ width: '100%', padding: '6px 8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box', fontSize: '0.82rem' }} 
                     />
                     <input 
                       type="file" 
                       accept="image/*" 
                       onChange={e => setEditFile(e.target.files ? e.target.files[0] : null)} 
-                      style={{ color: '#cbd5e1', fontSize: '0.8rem', padding: '4px 0' }} 
+                      style={{ color: '#cbd5e1', fontSize: '0.75rem', width: '100%' }} 
                     />
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      <button onClick={() => handleUpdatePhoto(photo.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>{t('albumSaveBtn') || 'Mentés'}</button>
-                      <button onClick={() => { setEditingPhotoId(null); setEditFile(null); }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>{t('albumCancelBtn') || 'Mégse'}</button>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={() => handleUpdatePhoto(photo.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>{t('albumSaveBtn') || 'Mentés'}</button>
+                      <button onClick={() => { setEditingPhotoId(null); setEditFile(null); }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{t('albumCancelBtn') || 'Mégse'}</button>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ marginTop: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button onClick={() => handleDownload(photo)} style={{ flex: '1 1 calc(33% - 8px)', background: '#10b98120', color: '#10b981', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>⬇️ {t('albumDownloadBtn') || 'Letöltés'}</button>
+                  <div style={{ marginTop: 'auto', display: 'flex', gap: '4px', width: '100%' }}>
+                    <button onClick={() => handleDownload(photo)} style={{ flex: 1, background: '#10b98120', color: '#10b981', border: 'none', padding: '6px 2px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}>⬇️ Letölt</button>
                     <button 
                       onClick={() => { 
                         setEditingPhotoId(photo.id); 
                         setEditTitle(photo.title || ''); 
                         setEditTitleHu(photo.title_hu || ''); 
                       }} 
-                      style={{ flex: '1 1 calc(33% - 8px)', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                      style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '6px 2px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
                     >
-                      ✏️ {t('albumEditBtn') || 'Szerkeszt'}
+                      ✏️ Szerkeszt
                     </button>
-                    <button onClick={() => handleDelete(photo.id)} style={{ flex: '1 1 calc(33% - 8px)', background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>🗑️ {t('albumDeleteBtn') || 'Törlés'}</button>
+                    <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px 2px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}>🗑️ Töröl</button>
                   </div>
                 )}
               </div>
