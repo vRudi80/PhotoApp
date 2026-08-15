@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { GoogleOAuthProvider, googleLogout } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import { GOOGLE_CLIENT_ID, BACKEND_URL, ADMIN_EMAIL } from './utils/constants';
 import { getImageUrl } from './utils/helpers';
@@ -81,6 +81,9 @@ if (typeof window !== 'undefined') {
   const handleUnauthorizedLogout = () => {
     if (!sessionStorage.getItem('auth_alert_shown')) {
       sessionStorage.setItem('auth_alert_shown', 'true');
+      try {
+        googleLogout();
+      } catch (e) {}
       localStorage.removeItem('photoAppToken');
       localStorage.removeItem('user');
       alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
@@ -264,6 +267,15 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
+  const handleGlobalLogout = () => {
+    try {
+      googleLogout();
+    } catch (e) {}
+    localStorage.removeItem('photoAppToken');
+    localStorage.removeItem('user');
+    setUser(null);
+  };
+
   useEffect(() => {
     sessionStorage.removeItem('auth_alert_shown');
 
@@ -277,16 +289,12 @@ function MainContent() {
         const now = Date.now();
 
         if (expTime <= now) {
-          localStorage.removeItem('photoAppToken');
-          localStorage.removeItem('user');
-          setUser(null);
+          handleGlobalLogout();
           alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
           window.location.href = '/';
         }
       } catch (e) {
-        localStorage.removeItem('photoAppToken');
-        localStorage.removeItem('user');
-        setUser(null);
+        handleGlobalLogout();
       }
     };
 
@@ -325,9 +333,7 @@ function MainContent() {
       ]);
 
       if (resUsers.status === 403 || resClubs.status === 403 || resMeetings.status === 403) {
-        localStorage.removeItem('photoAppToken');
-        localStorage.removeItem('user');
-        setUser(null);
+        handleGlobalLogout();
         setIsInitialLoading(false);
         setIsAuthLoading(false);
         alert("Ez a fiók biztonsági okokból véglegesen ki lett tiltva az Arénából!");
@@ -385,8 +391,7 @@ function MainContent() {
       const storedToken = localStorage.getItem('photoAppToken');
       
       if (!storedToken) {
-        localStorage.removeItem('user');
-        setUser(null);
+        handleGlobalLogout();
         setIsAuthLoading(false);
         setIsInitialLoading(false);
         return;
@@ -396,9 +401,7 @@ function MainContent() {
         const decoded: any = jwtDecode(storedToken);
         
         if (decoded.exp * 1000 < Date.now()) {
-          localStorage.removeItem('photoAppToken');
-          localStorage.removeItem('user');
-          setUser(null);
+          handleGlobalLogout();
           setIsAuthLoading(false);
           setIsInitialLoading(false);
           return;
@@ -411,9 +414,7 @@ function MainContent() {
         });
 
         if (res.status === 403) {
-          localStorage.removeItem('photoAppToken');
-          localStorage.removeItem('user');
-          setUser(null);
+          handleGlobalLogout();
           setIsAuthLoading(false);
           setIsInitialLoading(false);
           alert("Ez a fiók biztonsági okokból véglegesen ki lett tiltva!");
@@ -445,9 +446,7 @@ function MainContent() {
         }
       } catch (e) {
         console.error("Munkamenet ellenőrzési hiba:", e);
-        localStorage.removeItem('photoAppToken');
-        localStorage.removeItem('user');
-        setUser(null);
+        handleGlobalLogout();
         setIsAuthLoading(false);
         setIsInitialLoading(false);
       }
@@ -472,9 +471,7 @@ function MainContent() {
         });
 
         if (res.status === 403) {
-          localStorage.removeItem('photoAppToken');
-          localStorage.removeItem('user');
-          setUser(null);
+          handleGlobalLogout();
           window.location.reload();
           return;
         }
@@ -716,7 +713,7 @@ function MainContent() {
         </div>
       ) : (
         <div className="app-container" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)', color: 'var(--text-title)', fontFamily: 'Inter, sans-serif', width: '100%', maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
-          <Header user={headerUser} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} onLogout={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} />
+          <Header user={headerUser} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} onLogout={handleGlobalLogout} />
           <main className="app-main" style={{ width: '100%', maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -786,7 +783,7 @@ function MainContent() {
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </main>
-          <SessionGuard logoutUser={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} />
+          <SessionGuard logoutUser={handleGlobalLogout} />
         </div>
       )}
     </>
