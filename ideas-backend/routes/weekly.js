@@ -178,23 +178,35 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return newLevel;
   }
 
- async function processFinishedChallenges(pool) {
-  try {
-    const currentNow = getLocalMySQLNow();
-    
-    // 🎯 JAVÍTVA: Csak azoknak a prémiumját törli, akiknek NINCS Stripe azonosítójuk!
-    await pool.query(`
-      UPDATE photo_users 
-      SET premium_level = 0, is_premium = 0 
-      WHERE premium_until IS NOT NULL 
-        AND premium_until < ? 
-        AND (stripe_customer_id IS NULL OR TRIM(stripe_customer_id) = '')
-    `, [currentNow]);
+   async function processFinishedChallenges(pool) {
+    try {
+      const currentNow = getLocalMySQLNow();
+      
+      await pool.query(`
+        UPDATE photo_users 
+        SET premium_level = 0, is_premium = 0 
+        WHERE premium_until IS NOT NULL 
+          AND premium_until < ? 
+          AND (stripe_customer_id IS NULL OR TRIM(stripe_customer_id) = '')
+      `, [currentNow]);
 
-    const [unfinished] = await pool.query('SELECT id, title FROM weekly_topics WHERE end_date < ? AND processed = 0', [currentNow]);
+      const [unfinished] = await pool.query(
+        'SELECT id, title FROM weekly_topics WHERE end_date < ? AND processed = 0', 
+        [currentNow]
+      );
 
       for (const topic of unfinished) {
-        await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+        // 🎯 ATOMI ZÁROLÁS: Először átállítjuk 'processed = 1'-re!
+        // Ha az affectedRows === 0, egy másik párhuzamos kérés már feldolgozza, így kihagyjuk.
+        const [lockResult] = await pool.query(
+          'UPDATE weekly_topics SET processed = 1 WHERE id = ? AND processed = 0', 
+          [topic.id]
+        );
+
+        if (lockResult.affectedRows === 0) {
+          console.log(`⚠️ A(z) ${topic.id} azonosítójú futamot egy másik kérés már lezárta, kihagyás.`);
+          continue;
+        }
         
         console.log(`🔒 [PERSISTENCE] ${topic.id} azonosítójú futam végleges lezárása...`);
 
@@ -205,10 +217,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           ORDER BY calculated_fair_score DESC, e.likes_count DESC, e.views_count ASC
         `, [topic.id]);
 
-        if (entries.length === 0) {
-          await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
-          continue;
-        }
+        if (entries.length === 0) continue;
 
         const score1 = entries[0].calculated_fair_score;
         const score2 = entries[1] ? entries[1].calculated_fair_score : -1;
@@ -250,10 +259,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
           await checkAndAwardLevelUp(pool, entry.user_email);
         }
-        await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
       }
     } catch (err) { console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message); }
   }
+
 
   app.get('/api/admin/weekly-topics', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak admin láthatja!' });
