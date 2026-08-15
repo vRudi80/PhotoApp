@@ -3,7 +3,6 @@ import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
-// Professzionális Lucide ikonok importálása
 import { 
   Flame, 
   Trophy, 
@@ -20,14 +19,11 @@ import {
   Heart
 } from 'lucide-react';
 
-// Logók importálása
 import logoHu from './logo_hu2.png'; 
 import logoEn from './logo_en2.png'; 
 
-// 📸 SAJÁT HÁTTÉRKÉP IMPORTÁLÁSA
 import heroCameraImg from './hero_camera.jpg';
 
-// Nyelvi és téma kontextusok
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -70,6 +66,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const handleNativeGoogleSignIn = async () => {
     try {
       setIsNativeLoggingIn(true);
+      // 🎯 Kijelentkeztetjük a natív bővítményt, így nem ragad be az előző fiók, hanem újra felugrik a választó
+      await GoogleAuth.signOut().catch(() => {});
+      
       const googleUser = await GoogleAuth.signIn();
       const idToken = googleUser.authentication?.idToken || (googleUser as any).idToken;
       
@@ -86,6 +85,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       setIsNativeLoggingIn(false);
     }
   };
+
   const currentLogo = lang === 'en' ? logoEn : logoHu;
 
   const features = [
@@ -117,7 +117,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       color: 'var(--text-title)'
     }}>
       
-      {/* ── NYELVVÁLASZTÓ FEJLÉC ── */}
       <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }}>
         <div style={{ display: 'flex', gap: '4px', background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(12px)', padding: '4px', borderRadius: '30px', border: '1px solid rgba(255, 255, 255, 0.18)' }}>
            <button 
@@ -145,7 +144,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* ── 1. HERO SZEKCIÓ ── */}
       <div style={{
         position: 'relative',
         minHeight: '100vh',
@@ -164,7 +162,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         `
       }}>
 
-        {/* Brand Logó */}
         <div style={{ marginBottom: '1.8rem', filter: 'drop-shadow(0 10px 25px rgba(0,0,0,0.5))' }}>
           <img 
             src={currentLogo} 
@@ -173,7 +170,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           />
         </div>
 
-        {/* Jelvény / Tagline */}
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -192,7 +188,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           {lang === 'en' ? 'The home for photography lovers' : 'A fotózás szerelmeseinek otthona'}
         </div>
 
-        {/* Főcím */}
         <h1 style={{ 
           fontSize: 'clamp(2.1rem, 5vw, 3.4rem)', 
           margin: '0 0 16px 0', 
@@ -212,7 +207,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </span>
         </h1>
 
-        {/* Részletes leírás */}
         <p style={{ 
           fontSize: 'clamp(1rem, 2vw, 1.15rem)', 
           color: '#f1f5f9', 
@@ -227,7 +221,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             : 'Lépj be, és fedezd fel a játékokat, pályázatokat, a helyszíntérképet és kérj profi AI képelemzést a fotóidra!'}
         </p>
 
-        {/* KÖZPONTI BELÉPŐ DOBOZ */}
         <div style={{
           background: 'rgba(15, 23, 42, 0.82)', 
           padding: '28px 24px', 
@@ -291,6 +284,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 size="large" 
                 theme={theme === 'dark' ? "filled_black" : "outline"} 
                 text="continue_with"
+                prompt="select_account"
                 locale={lang} 
               />
             )}
@@ -317,7 +311,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </div>
         </div>
 
-        {/* Görgető nyíl */}
         <button 
           onClick={scrollToFeatures} 
           aria-label={lang === 'en' ? 'Discover features' : 'Fedezd fel a funkciókat'}
@@ -340,7 +333,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </button>
       </div>
 
-      {/* ── 2. "MIT TALÁLSZ ITT?" FUNKCIÓMÁTRIX ── */}
       <div id="features-section" style={{
         maxWidth: '1100px',
         margin: '0 auto',
@@ -409,7 +401,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* ── 3. INSPIRÁCIÓ ÉS MÁSODIK BELÉPÉSI PONT ── */}
       <div style={{
         background: 'linear-gradient(180deg, var(--bg-main) 0%, rgba(168, 85, 247, 0.12) 100%)',
         borderTop: '1px solid var(--border-main)',
@@ -478,6 +469,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 size="large" 
                 theme={theme === 'dark' ? "filled_black" : "outline"} 
                 text="continue_with"
+                prompt="select_account"
                 locale={lang} 
               />
             )}
@@ -492,7 +484,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* ── CSS ANIMÁCIÓK ── */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
