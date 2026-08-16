@@ -103,7 +103,6 @@ export default function ContestsView(props: ContestsViewProps) {
   const [isJuryDocCompiling, setIsJuryDocCompiling] = useState(false);
   const [isLegalChecked, setIsLegalChecked] = useState(false);
   
-  // 🎯 ÖNMŰKÖDŐ PROFIL FRISSÍTŐ ÁLLAPOT
   const [autoFetchedUser, setAutoFetchedUser] = useState<any>(null);
 
   useEffect(() => {
@@ -114,13 +113,10 @@ export default function ContestsView(props: ContestsViewProps) {
     setIsLegalChecked(false);
   }, [props.activeUploadContest]);
 
- // source: ContestsView.tsx
-  // 🎯 AZ OLDAL BETÖLTÉSEKOR AZONNAL LEKÉRJÜK A FRISS FELHASZNÁLÓI PROFILT AZ ADATBÁZISBÓL
   useEffect(() => {
     const targetEmail = props.user?.email || props.currentDbUser?.email;
     if (!targetEmail) return;
 
-    // Helyes LocalStorage kulcs kiolvasása (photoAppToken)
     const getAuthToken = () => {
       if (typeof window === 'undefined') return '';
       const keys = ['photoAppToken', 'token', 'authToken', 'googleToken'];
@@ -150,7 +146,6 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
-  // 🎯 GOLYÓÁLLÓ PROFIL ADAT ELLENŐRZÉS (Észeleli az autoFetchedUser-t, currentDbUser-t és user-t is)
   const hasRequiredProfileData = useMemo(() => {
     const u = autoFetchedUser || props.currentDbUser || props.user;
     if (!u) return false;
@@ -166,11 +161,9 @@ export default function ContestsView(props: ContestsViewProps) {
     return phoneVal.length > 0 && addressVal.length > 0;
   }, [autoFetchedUser, props.currentDbUser, props.user]);
 
-  // Biztonsági változók a klubtagság állapotához
   const isPending = (autoFetchedUser || props.currentDbUser)?.club_role === 'pending';
   const hasNoActiveClub = !(autoFetchedUser || props.currentDbUser)?.club_name || isPending;
 
-  // 🎯 Biztonságos szűrőmotor a zárt klubpályázatok elrejtésére
   const secureContests = useMemo(() => {
     if (!Array.isArray(props.filteredContests)) return [];
     const activeDbUser = autoFetchedUser || props.currentDbUser;
@@ -188,9 +181,6 @@ export default function ContestsView(props: ContestsViewProps) {
     });
   }, [props.filteredContests, props.currentDbUser, autoFetchedUser, hasNoActiveClub]);
 
-  // ====================================================================
-  // 📜 OKLEVÉL GENERÁLÓ LOGIKA
-  // ====================================================================
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
@@ -290,9 +280,6 @@ export default function ContestsView(props: ContestsViewProps) {
     }
   };
 
-  // ====================================================================
-  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA
-  // ====================================================================
   const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
     setIsJuryDocCompiling(true);
     try {
@@ -420,10 +407,10 @@ export default function ContestsView(props: ContestsViewProps) {
 
   if (props.activeTab === 'contests_club_active' && !activeClubUser?.club_name && !isUserJurySomewhereInList) {
     return (
-      <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #ef444440', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🔒</div>
-        <h2 style={{ color: '#ef4444', margin: '0 0 12px 0', fontSize: '1.8rem' }}>{t('contNoClubTitle')}</h2>
-        <p style={{ color: '#94a3b8', fontSize: '1.05rem', maxWidth: '500px', margin: '0 auto', lineHeight: '1.6' }}>
+      <div style={{ textAlign: 'center', padding: '3rem 1.5rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #ef444440', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', boxSizing: 'border-box', width: '100%' }}>
+        <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🔒</div>
+        <h2 style={{ color: '#ef4444', margin: '0 0 12px 0', fontSize: '1.5rem', wordBreak: 'break-word' }}>{t('contNoClubTitle')}</h2>
+        <p style={{ color: '#94a3b8', fontSize: '1rem', maxWidth: '500px', margin: '0 auto', lineHeight: '1.6', wordBreak: 'break-word' }}>
           {t('contNoClubDesc')}
         </p>
       </div>
@@ -438,37 +425,37 @@ export default function ContestsView(props: ContestsViewProps) {
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+    <div style={{ animation: 'fadeIn 0.4s ease-out', width: '100%', maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
       
       {/* PÁLYÁZAT KIÍRÁSA PANEL */}
       {((props.activeTab === 'admin_contests' && props.user.email === ADMIN_EMAIL) || 
         (props.activeTab === 'contests_club_active' && props.isLeader)) && (
         
-        <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', marginBottom: '30px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#f59e0b', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '20px', marginBottom: '20px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', boxSizing: 'border-box', width: '100%' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '16px', color: '#f59e0b', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px', wordBreak: 'break-word' }}>
             {props.user.email === ADMIN_EMAIL ? t('contAdminCreateTitle') : `${t('contClubCreateTitle')} (${activeClubUser?.club_name})`}
           </h3>
           <input placeholder={t('contPlaceholderTitle')} value={props.newTitle} onChange={e => props.setNewTitle(e.target.value)} style={inputStyle} />
           <textarea placeholder={t('contPlaceholderDesc')} value={props.newDesc} onChange={e => props.setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '80px', resize: 'vertical'}} />
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '5px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '5px' }}>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contLabelStart')}</label>
+              <label style={{fontSize:'0.78rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '4px'}}>{t('contLabelStart')}</label>
               <input type="datetime-local" value={props.newStart} onChange={e => props.setNewStart(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contLabelEnd')}</label>
+              <label style={{fontSize:'0.78rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '4px'}}>{t('contLabelEnd')}</label>
               <input type="datetime-local" value={props.newEnd} onChange={e => props.setNewEnd(e.target.value)} style={inputStyle} />
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '5px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '5px' }}>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contLabelFee')}</label>
+              <label style={{fontSize:'0.78rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '4px'}}>{t('contLabelFee')}</label>
               <input type="number" min="0" value={props.newEntryFee} onChange={e => props.setNewEntryFee(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contLabelCurrency')}</label>
+              <label style={{fontSize:'0.78rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '4px'}}>{t('contLabelCurrency')}</label>
               <select value={props.newFeeCurrency} onChange={e => props.setNewFeeCurrency(e.target.value)} style={inputStyle}>
                 <option value="HUF">HUF (Forint)</option>
                 <option value="EUR">EUR (Euro)</option>
@@ -479,12 +466,12 @@ export default function ContestsView(props: ContestsViewProps) {
           <input placeholder={t('contPlaceholderCats')} value={props.newCats} onChange={e => props.setNewCats(e.target.value)} style={inputStyle} />
           
           {props.newCats.split(',').map(c => c.trim()).filter(Boolean).length > 0 && (
-            <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.1rem' }}>{t('contCatsSettingsTitle')}</h4>
+            <div style={{ background: '#0f172a', padding: '16px', borderRadius: '12px', marginBottom: '16px', border: '1px solid #334155', boxSizing: 'border-box', width: '100%' }}>
+              <h4 style={{ margin: '0 0 12px 0', color: '#38bdf8', fontSize: '1rem' }}>{t('contCatsSettingsTitle')}</h4>
               {props.newCats.split(',').map(c => c.trim()).filter(Boolean).map(cat => (
-                <div key={cat} style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px dashed #1e293b' }}>
-                  <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '10px', fontSize: '0.95rem' }}>✨ {cat}{t('contSectionTitle')}</strong>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                <div key={cat} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px dashed #1e293b' }}>
+                  <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '8px', fontSize: '0.9rem', wordBreak: 'break-word' }}>✨ {cat}{t('contSectionTitle')}</strong>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
                     <div>
                       <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contLabelAcceptScore')}</label>
                       <input 
@@ -492,7 +479,7 @@ export default function ContestsView(props: ContestsViewProps) {
                         placeholder="Pl.: 24" 
                         value={props.newCategorySettings[cat]?.acceptanceScore || ''} 
                         onChange={e => props.newCategorySettings[cat] ? props.setNewCategorySettings({...props.newCategorySettings, [cat]: { ...props.newCategorySettings[cat], acceptanceScore: e.target.value ? Number(e.target.value) : '' }}) : props.setNewCategorySettings({...props.newCategorySettings, [cat]: { acceptanceScore: e.target.value ? Number(e.target.value) : '' }})}
-                        style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
+                        style={{...inputStyle, marginBottom: 0, marginTop: '4px'}} 
                       />
                     </div>
                     <div>
@@ -502,7 +489,7 @@ export default function ContestsView(props: ContestsViewProps) {
                         placeholder={t('contPlaceholderAwards')} 
                         value={props.newCategorySettings[cat]?.awardsString || ''} 
                         onChange={e => props.newCategorySettings[cat] ? props.setNewCategorySettings({...props.newCategorySettings, [cat]: { ...props.newCategorySettings[cat], awardsString: e.target.value }}) : props.setNewCategorySettings({...props.newCategorySettings, [cat]: { awardsString: e.target.value }})}
-                        style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
+                        style={{...inputStyle, marginBottom: 0, marginTop: '4px'}} 
                       />
                     </div>
                   </div>
@@ -511,9 +498,9 @@ export default function ContestsView(props: ContestsViewProps) {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contVisibilityLabel')}</label>
+              <label style={{fontSize:'0.78rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '4px'}}>{t('contVisibilityLabel')}</label>
               {props.user.email === ADMIN_EMAIL ? (
                 <select 
                   value={String(currentNewClubValue)} 
@@ -524,14 +511,14 @@ export default function ContestsView(props: ContestsViewProps) {
                   {props.clubs.map(c => <option key={c.id} value={String(c.id)}>{t('contVisibilityPrivate')}{c.name}</option>)}
                 </select>
               ) : (
-                <div style={{ padding: '12px', background: '#0f172a', borderRadius: '10px', color: '#cbd5e1', fontSize: '0.95rem', border: '1px solid #334155' }}>
+                <div style={{ padding: '10px', background: '#0f172a', borderRadius: '8px', color: '#cbd5e1', fontSize: '0.88rem', border: '1px solid #334155', wordBreak: 'break-word' }}>
                   {t('contVisibilityPrivate')}<strong>{activeClubUser?.club_name}</strong>
                 </div>
               )}
             </div>
 
             <div>
-              <label style={{fontSize:'0.8rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contSponsorLabel')}</label>
+              <label style={{fontSize:'0.78rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '4px'}}>{t('contSponsorLabel')}</label>
               <select 
                 value={props.newSponsorClub} 
                 onChange={e => props.setNewSponsorClub(e.target.value)} 
@@ -543,12 +530,12 @@ export default function ContestsView(props: ContestsViewProps) {
             </div>
           </div>
           
-          <button onClick={props.handleCreateContest} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(16,185,129,0.3)', marginTop: '20px' }}>{t('contCreateBtn')}</button>
+          <button onClick={props.handleCreateContest} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.92rem', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(16,185,129,0.3)', marginTop: '16px', width: '100%' }}>{t('contCreateBtn')}</button>
         </div>
       )}
 
       {/* CÍMSOR */}
-      <h2 style={{ fontSize: '2rem', marginBottom: '20px', color: '#f8fafc', fontWeight: '900', letterSpacing: '-0.5px' }}>
+      <h2 style={{ fontSize: 'clamp(1.4rem, 4vw, 1.8rem)', marginBottom: '16px', color: '#f8fafc', fontWeight: '900', letterSpacing: '-0.5px', wordBreak: 'break-word' }}>
         {getHeaderMainTitle()}
       </h2>
 
@@ -557,27 +544,28 @@ export default function ContestsView(props: ContestsViewProps) {
         <div style={{ 
           background: isPending ? 'rgba(245, 158, 11, 0.05)' : 'rgba(56, 189, 248, 0.05)', 
           borderLeft: isPending ? '4px solid #f59e0b' : '4px solid #38bdf8', 
-          padding: '16px 20px', 
+          padding: '12px 16px', 
           borderRadius: '0 12px 12px 0', 
-          marginBottom: '25px', 
-          fontSize: '0.92rem', 
+          marginBottom: '20px', 
+          fontSize: '0.85rem', 
           color: '#cbd5e1', 
-          lineHeight: '1.6',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.15)'
+          lineHeight: '1.5',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+          wordBreak: 'break-word'
         }}>
           {isPending ? (
             <span>
               ⏳ <b>{lang === 'en' ? 'Membership Pending:' : 'Tagfelvételi kérelmed jóváhagyásra vár:'}</b>{' '}
               {lang === 'en'
-                ? 'Private club-exclusive contests are hidden until the club leader approves your request. You can participate in all open public contests in the meantime!'
-                : 'A zártkörű, klub-exkluzív pályázatok rejtve maradnak, amíg a klubvezetőd el nem fogadja a jelentkezésedet. A nyílt, országos kiírásokon azonban addig is zavartalanul indulhatsz!'}
+                ? 'Private club-exclusive contests are hidden until the club leader approves your request.'
+                : 'A zártkörű, klub-exkluzív pályázatok rejtve maradnak, amíg a klubvezetőd el nem fogadja a jelentkezésedet.'}
             </span>
           ) : (
             <span>
               💡 <b>{lang === 'en' ? 'Independent Photographer Mode:' : 'Szabadúszó / Független fotós státusz:'}</b>{' '}
               {lang === 'en'
-                ? 'You are not assigned to any photo club, so you can only see open public contests. To unlock club-restricted challenges, join a club on the Profile page!'
-                : 'Mivel nem vagy tagja egyetlen fotóklubnak sem, jelenleg kizárólag a nyilvános, országos kiírásokat látod. Ha egy fotóklub belső, zártkörű pályázatain is elindulnál, csatlakozz hozzájuk a Profil oldalon!'}
+                ? 'You are not assigned to any photo club, so you can only see open public contests.'
+                : 'Mivel nem vagy tagja egyetlen fotóklubnak sem, jelenleg kizárólag a nyilvános, országos kiírásokat látod.'}
             </span>
           )}
         </div>
@@ -585,9 +573,9 @@ export default function ContestsView(props: ContestsViewProps) {
       
       {/* PÁLYÁZATOK LISTÁJA */}
       {secureContests.length === 0 ? (
-        <div style={{ color: '#94a3b8', background: '#1e293b', padding: '30px', borderRadius: '16px', textAlign: 'center', border: '1px solid #334155' }}>{t('contEmptyList')}</div>
+        <div style={{ color: '#94a3b8', background: '#1e293b', padding: '24px', borderRadius: '16px', textAlign: 'center', border: '1px solid #334155' }}>{t('contEmptyList')}</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', boxSizing: 'border-box' }}>
           {secureContests.map(contest => {
             const now = new Date();
             const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
@@ -624,28 +612,28 @@ export default function ContestsView(props: ContestsViewProps) {
             const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
 
             return (
-              <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: `1px solid ${badgeColor}40`, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', position: 'relative', overflow: 'hidden' }} key={contest.id}>
+              <div style={{ backgroundColor: '#1e293b', padding: '18px', borderRadius: '18px', border: `1px solid ${badgeColor}40`, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', position: 'relative', overflow: 'hidden', boxSizing: 'border-box', width: '100%' }} key={contest.id}>
                 
                 {contest.restricted_club && (
-                  <div style={{ position: 'absolute', top: 0, left: '25px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', padding: '5px 14px', borderRadius: '0 0 10px 10px', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', letterSpacing: '0.5px' }}>
+                  <div style={{ position: 'absolute', top: 0, left: '16px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', padding: '4px 10px', borderRadius: '0 0 8px 8px', fontSize: '0.7rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', letterSpacing: '0.5px' }}>
                     {t('contVisibilityPrivate').toUpperCase()}{contest.restricted_club}
                   </div>
                 )}
 
                 {/* ALSZEKCIÓK INTERFÉSZ */}
                 {props.viewJuryProgressId === contest.id ? (
-                  <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #a78bfa' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
-                      <h3 style={{ margin: 0, color: '#a78bfa', fontSize: '1.2rem' }}>{t('juryProgressTitle')}</h3>
-                      <button onClick={() => props.setViewJuryProgressId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('juryProgressClose')}</button>
+                  <div style={{ background: '#0f172a', padding: '16px', borderRadius: '14px', marginBottom: '16px', border: '1px solid #a78bfa', boxSizing: 'border-box' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '12px', marginBottom: '16px' }}>
+                      <h3 style={{ margin: 0, color: '#a78bfa', fontSize: '1.1rem' }}>{t('juryProgressTitle')}</h3>
+                      <button onClick={() => props.setViewJuryProgressId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>{t('juryProgressClose')}</button>
                     </div>
-                    <div style={{ marginBottom: '20px', color: '#94a3b8' }}>
+                    <div style={{ marginBottom: '16px', color: '#94a3b8', fontSize: '0.85rem' }}>
                       {t('juryProgressTotal')}<strong style={{color: '#f8fafc'}}>{props.juryProgressData.total_entries} {lang === 'en' ? 'photos' : 'fotó'}</strong>
                     </div>
                     {props.juryProgressData.stats.length === 0 ? (
-                      <p style={{ color: '#94a3b8', margin: 0 }}>{t('juryProgressNoJury')}</p>
+                      <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85rem' }}>{t('juryProgressNoJury')}</p>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {props.juryProgressData.stats.map((stat: any) => {
                           const userObj = props.allUsers.find(u => u.email === stat.user_email);
                           const name = userObj ? userObj.name : stat.user_email;
@@ -653,17 +641,17 @@ export default function ContestsView(props: ContestsViewProps) {
                           const percent = props.juryProgressData.total_entries > 0 ? Math.round((stat.voted_count / props.juryProgressData.total_entries) * 100) : 0;
                           
                           return (
-                            <div key={stat.user_email} style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-                                <strong style={{ color: '#f8fafc' }}>{name}</strong>
-                                <span style={{ color: remaining <= 0 ? '#10b981' : '#f59e0b', fontWeight: 'bold', fontSize: '0.85rem', background: remaining <= 0 ? '#10b98115' : '#f59e0b15', padding: '2px 8px', borderRadius: '6px' }}>
+                            <div key={stat.user_email} style={{ background: '#1e293b', padding: '12px', borderRadius: '10px', border: '1px solid #334155' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                <strong style={{ color: '#f8fafc', fontSize: '0.85rem', wordBreak: 'break-word' }}>{name}</strong>
+                                <span style={{ color: remaining <= 0 ? '#10b981' : '#f59e0b', fontWeight: 'bold', fontSize: '0.75rem', background: remaining <= 0 ? '#10b98115' : '#f59e0b15', padding: '2px 6px', borderRadius: '6px' }}>
                                   {remaining <= 0 ? t('juryProgressDone') : `${remaining} ${t('juryProgressRemaining')}`}
                                 </span>
                               </div>
-                              <div style={{ width: '100%', background: '#0f172a', borderRadius: '100px', height: '8px', overflow: 'hidden' }}>
+                              <div style={{ width: '100%', background: '#0f172a', borderRadius: '100px', height: '6px', overflow: 'hidden' }}>
                                 <div style={{ width: `${percent}%`, background: remaining <= 0 ? '#10b981' : 'linear-gradient(90deg, #a78bfa, #8b5cf6)', height: '100%' }}></div>
                               </div>
-                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px', textAlign: 'right' }}>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', textAlign: 'right' }}>
                                 {stat.voted_count} / {props.juryProgressData.total_entries} {t('juryProgressScoredUnit')}({percent}%)
                               </div>
                             </div>
@@ -673,30 +661,30 @@ export default function ContestsView(props: ContestsViewProps) {
                     )}
                   </div>
                 ) : props.manageJuryContestId === contest.id ? (
-                    <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #8b5cf640' }}>
-                      <h4 style={{marginTop: 0, color: '#a78bfa', fontSize: '1.2rem', marginBottom: '15px'}}>{t('juryManageTitle')}</h4>
-                      <div style={{display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap'}}>
-                        <select value={props.selectedJuryEmail} onChange={e => props.setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0, flex: '1 1 200px'}}>
+                    <div style={{ background: '#0f172a', padding: '16px', borderRadius: '14px', border: '1px solid #8b5cf640', boxSizing: 'border-box' }}>
+                      <h4 style={{marginTop: 0, color: '#a78bfa', fontSize: '1.1rem', marginBottom: '12px'}}>{t('juryManageTitle')}</h4>
+                      <div style={{display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap'}}>
+                        <select value={props.selectedJuryEmail} onChange={e => props.setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0, flex: '1 1 180px'}}>
                           <option value="">{t('juryManageSelectPlaceholder')}</option>
                           {props.allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (<option key={u.email} value={u.email}>{u.name} ({u.email})</option>))}
                         </select>
-                        <button onClick={() => props.handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contAdd')}</button>
+                        <button onClick={() => props.handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('contAdd')}</button>
                       </div>
-                      <ul style={{ padding: 0, listStyle: 'none', margin: '0 0 15px 0' }}>
-                        {contestJury.map(jury => <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '12px', borderRadius: '10px', marginBottom: '6px', border: '1px solid #334155' }}><span>{props.allUsers.find(u => u.email === jury.user_email)?.name || jury.user_email}</span><button onClick={() => props.handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>{t('contRemove')}</button></li>)}
+                      <ul style={{ padding: 0, listStyle: 'none', margin: '0 0 12px 0' }}>
+                        {contestJury.map(jury => <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px', marginBottom: '6px', border: '1px solid #334155', fontSize: '0.85rem' }}><span>{props.allUsers.find(u => u.email === jury.user_email)?.name || jury.user_email}</span><button onClick={() => props.handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>{t('contRemove')}</button></li>)}
                       </ul>
-                      <button onClick={() => props.setManageJuryContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBack')}</button>
+                      <button onClick={() => props.setManageJuryContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('contBack')}</button>
                     </div>
                 ) : props.viewStatsContestId === contest.id ? (
-                  <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
-                      <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.2rem' }}>{t('entrantsRegistryTitle')}</h3>
-                      <button onClick={() => props.setViewStatsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('juryProgressClose')}</button>
+                  <div style={{ background: '#0f172a', padding: '16px', borderRadius: '14px', border: '1px solid #334155', boxSizing: 'border-box' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '12px', marginBottom: '16px' }}>
+                      <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.1rem' }}>{t('entrantsRegistryTitle')}</h3>
+                      <button onClick={() => props.setViewStatsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}>{t('juryProgressClose')}</button>
                     </div>
                     {props.contestStats.length === 0 ? (
-                      <p style={{ color: '#94a3b8', margin: 0 }}>{t('entrantsRegistryEmpty')}</p>
+                      <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85rem' }}>{t('entrantsRegistryEmpty')}</p>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {Object.entries(props.contestStats.reduce((acc, curr) => {
                           if (!acc[curr.user_email]) acc[curr.user_email] = { name: curr.user_name, cats: [] };
                           acc[curr.user_email].cats.push({ cat: curr.category, count: curr.image_count });
@@ -705,18 +693,18 @@ export default function ContestsView(props: ContestsViewProps) {
                           const userHasPaid = (props.contestPayments || []).some(p => p.contest_id === contest.id && p.user_email === email);
                           
                           return (
-                            <div key={email} style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
-                              <div style={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                                <span>{data.name}</span>
+                            <div key={email} style={{ background: '#1e293b', padding: '12px', borderRadius: '10px', border: '1px solid #334155' }}>
+                              <div style={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '0.88rem' }}>
+                                <span style={{ wordBreak: 'break-word' }}>{data.name}</span>
                                 {isFeeRequired && (
-                                  <span style={{ fontSize: '0.8rem', color: userHasPaid ? '#10b981' : '#f59e0b', background: userHasPaid ? '#10b98115' : '#f59e0b15', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${userHasPaid ? '#10b98140' : '#f59e0b40'}`, fontWeight: 'bold' }}>
+                                  <span style={{ fontSize: '0.75rem', color: userHasPaid ? '#10b981' : '#f59e0b', background: userHasPaid ? '#10b98115' : '#f59e0b15', padding: '3px 8px', borderRadius: '6px', border: `1px solid ${userHasPaid ? '#10b98140' : '#f59e0b40'}`, fontWeight: 'bold' }}>
                                     {userHasPaid ? t('entrantsRegistryPaid') : t('entrantsRegistryPending')}
                                   </span>
                                 )}
                               </div>
-                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 {data.cats.map((c: any) => (
-                                  <span key={c.cat} style={{ background: '#0f172a', color: '#38bdf8', padding: '6px 12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #334155' }}>{c.cat}: <strong style={{color: '#f8fafc'}}>{c.count}{lang === 'en' ? ' photos' : ' db fotó'}</strong></span>
+                                  <span key={c.cat} style={{ background: '#0f172a', color: '#38bdf8', padding: '4px 8px', borderRadius: '6px', fontSize: '0.78rem', border: '1px solid #334155' }}>{c.cat}: <strong style={{color: '#f8fafc'}}>{c.count}{lang === 'en' ? ' photos' : ' db'}</strong></span>
                                 ))}
                               </div>
                             </div>
@@ -726,29 +714,29 @@ export default function ContestsView(props: ContestsViewProps) {
                     )}
                   </div>
                 ) : props.editContestId === contest.id ? (
-                  <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #f59e0b40' }}>
-                    <h4 style={{marginTop: 0, color: '#f59e0b', fontSize: '1.2rem', marginBottom: '15px'}}>{t('contFormEditParamTitle')}</h4>
+                  <div style={{ background: '#0f172a', padding: '16px', borderRadius: '14px', border: '1px solid #f59e0b40', boxSizing: 'border-box' }}>
+                    <h4 style={{marginTop: 0, color: '#f59e0b', fontSize: '1.1rem', marginBottom: '12px'}}>{t('contFormEditParamTitle')}</h4>
                     <input value={props.editTitle} onChange={e => props.setEditTitle(e.target.value)} style={inputStyle} />
                     <textarea value={props.editDesc} onChange={e => props.setEditDesc(e.target.value)} style={{...inputStyle, minHeight: '70px'}} />
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '5px' }}>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>{t('contFormEditStart')}</label>
+                        <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contFormEditStart')}</label>
                         <input type="datetime-local" value={props.editStart} onChange={e => props.setEditStart(e.target.value)} style={inputStyle} />
                       </div>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>{t('contFormEditEnd')}</label>
+                        <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contFormEditEnd')}</label>
                         <input type="datetime-local" value={props.editEnd} onChange={e => props.setEditEnd(e.target.value)} style={inputStyle} />
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '5px' }}>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>{t('contLabelFee')}</label>
+                        <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contLabelFee')}</label>
                         <input type="number" min="0" value={props.editEntryFee} onChange={e => props.setEditEntryFee(e.target.value)} style={inputStyle} />
                       </div>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>{t('contLabelCurrency')}</label>
+                        <label style={{fontSize:'0.75rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>{t('contLabelCurrency')}</label>
                         <select value={props.editFeeCurrency} onChange={e => props.editFeeCurrency(e.target.value)} style={inputStyle}>
                           <option value="HUF">HUF</option>
                           <option value="EUR">EUR</option>
@@ -759,30 +747,30 @@ export default function ContestsView(props: ContestsViewProps) {
                     <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                     
                     {props.editCats.split(',').map(c => c.trim()).filter(Boolean).length > 0 && (
-                      <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
-                        <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.1rem' }}>{t('contFormEditSettingsTitle')}</h4>
+                      <div style={{ background: '#0f172a', padding: '14px', borderRadius: '12px', marginBottom: '14px', border: '1px solid #334155', boxSizing: 'border-box' }}>
+                        <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontSize: '1rem' }}>{t('contFormEditSettingsTitle')}</h4>
                         {props.editCats.split(',').map(c => c.trim()).filter(Boolean).map(cat => (
-                          <div key={cat} style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px dashed #1e293b' }}>
-                            <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '10px', fontSize: '0.95rem' }}>✨ {cat}{t('contSectionTitle')}</strong>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                          <div key={cat} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px dashed #1e293b' }}>
+                            <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '6px', fontSize: '0.88rem' }}>✨ {cat}{t('contSectionTitle')}</strong>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
                               <div>
-                                <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contLabelAcceptScore')}</label>
+                                <label style={{fontSize:'0.72rem', color:'#94a3b8'}}>{t('contLabelAcceptScore')}</label>
                                 <input 
                                   type="number" 
                                   placeholder="Pl.: 24" 
                                   value={props.editCategorySettings[cat]?.acceptanceScore || ''} 
                                   onChange={e => props.editCategorySettings[cat] ? props.setEditCategorySettings({...props.editCategorySettings, [cat]: { ...props.editCategorySettings[cat], acceptanceScore: e.target.value ? Number(e.target.value) : '' }}) : props.editCategorySettings({...props.editCategorySettings, [cat]: { acceptanceScore: e.target.value ? Number(e.target.value) : '' }})}
-                                  style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
+                                  style={{...inputStyle, marginBottom: 0, marginTop: '4px'}} 
                                 />
                               </div>
                               <div>
-                                <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contLabelAwardsStr')}</label>
+                                <label style={{fontSize:'0.72rem', color:'#94a3b8'}}>{t('contLabelAwardsStr')}</label>
                                 <input 
                                   type="text" 
                                   placeholder={t('contPlaceholderAwards')} 
                                   value={props.editCategorySettings[cat]?.awardsString || ''} 
                                   onChange={e => props.editCategorySettings[cat] ? props.setEditCategorySettings({...props.editCategorySettings, [cat]: { ...props.editCategorySettings[cat], awardsString: e.target.value }}) : props.setEditCategorySettings({...props.editCategorySettings, [cat]: { awardsString: e.target.value }})}
-                                  style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
+                                  style={{...inputStyle, marginBottom: 0, marginTop: '4px'}} 
                                 />
                               </div>
                             </div>
@@ -791,9 +779,9 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '5px' }}>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>{t('contVisibilityLabel')}</label>
+                        <label style={{fontSize:'0.75rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>{t('contVisibilityLabel')}</label>
                         <select 
                           value={String(currentEditClubValue)} 
                           onChange={e => props.setEditRestrictedClub(e.target.value)} 
@@ -805,7 +793,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
 
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#a78bfa', display: 'block', marginBottom: '4px'}}>{t('contSponsorLabel')}</label>
+                        <label style={{fontSize:'0.75rem', color:'#a78bfa', display: 'block', marginBottom: '4px'}}>{t('contSponsorLabel')}</label>
                         <select 
                           value={props.editSponsorClub} 
                           onChange={e => props.setEditSponsorClub(e.target.value)} 
@@ -817,19 +805,19 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
                     </div>
 
-                    <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
-                      <button onClick={props.handleUpdateContest} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contSaveChange')}</button>
-                      <button onClick={() => props.setEditContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>{t('contCancel')}</button>
+                    <div style={{display: 'flex', gap: '8px', marginTop: '12px'}}>
+                      <button onClick={props.handleUpdateContest} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('contSaveChange')}</button>
+                      <button onClick={() => props.setEditContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>{t('contCancel')}</button>
                     </div>
                   </div>
                 ) : props.judgingContestId === contest.id ? (
                   <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000000', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ padding: '15px 30px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
-                        <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.3rem' }}>{t('judgingConsoleTitle')}{contest.title}</h3>
-                        <span style={{ background: '#1e293b', padding: '6px 16px', borderRadius: '100px', color: '#38bdf8', fontWeight: 'bold', fontSize: '0.9rem', border: '1px solid #334155' }}>{t('judgingConsoleRemaining')}{props.unvotedEntries.length}{lang === 'en' ? ' photos' : ' db'}</span>
+                    <div style={{ padding: '12px 20px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.1rem', wordBreak: 'break-word' }}>{t('judgingConsoleTitle')}{contest.title}</h3>
+                        <span style={{ background: '#1e293b', padding: '4px 12px', borderRadius: '100px', color: '#38bdf8', fontWeight: 'bold', fontSize: '0.8rem', border: '1px solid #334155' }}>{t('judgingConsoleRemaining')}{props.unvotedEntries.length}{lang === 'en' ? ' photos' : ' db'}</span>
                       </div>
-                      <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444440', padding: '8px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{t('judgingConsoleClose')}</button>
+                      <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444440', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>{t('judgingConsoleClose')}</button>
                     </div>
 
                     {props.unvotedEntries.length > 0 ? (
@@ -838,57 +826,57 @@ export default function ContestsView(props: ContestsViewProps) {
                           const currentEntry = props.unvotedEntries[0];
                           const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
                           return (
-                            <div key={currentEntry.id} style={{ flex: 1, minHeight: 0, background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '15px', overflow: 'hidden' }}>
-                              <img src={imageUrl} alt="Judging asset" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.9)' }} />
+                            <div key={currentEntry.id} style={{ flex: 1, minHeight: 0, background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px', overflow: 'hidden' }}>
+                              <img src={imageUrl} alt="Judging asset" referrerPolicy="no-referrer" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.9)' }} />
                             </div>
                           );
                         })()}
 
-                        <div style={{ background: '#0f172a', padding: '20px 40px', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', flexWrap: 'wrap', flexShrink: 0 }}>
-                          <div style={{ flex: '1', minWidth: '220px' }}>
-                            <div style={{ fontSize: '1.3rem', color: '#f8fafc', fontWeight: '900', marginBottom: '6px' }}>{props.unvotedEntries[0].title || t('judgingConsoleAnonymous')}</div>
-                            <span style={{ background: '#38bdf815', color: '#38bdf8', padding: '4px 12px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #38bdf830' }}>📂 {props.unvotedEntries[0].category}</span>
+                        <div style={{ background: '#0f172a', padding: '16px', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', flexShrink: 0, boxSizing: 'border-box' }}>
+                          <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                            <div style={{ fontSize: '1.1rem', color: '#f8fafc', fontWeight: '900', marginBottom: '4px', wordBreak: 'break-word' }}>{props.unvotedEntries[0].title || t('judgingConsoleAnonymous')}</div>
+                            <span style={{ background: '#38bdf815', color: '#38bdf8', padding: '2px 8px', borderRadius: '100px', fontSize: '0.78rem', fontWeight: 'bold', border: '1px solid #38bdf830' }}>📂 {props.unvotedEntries[0].category}</span>
                           </div>
 
-                          <div style={{ flex: '2', minWidth: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '15px' }}>
-                              <span style={{ color: '#64748b', fontWeight: 'bold' }}>0</span>
-                              <input type="range" min="0" max="100" value={props.currentScore === '' ? 0 : props.currentScore} onChange={e => props.setCurrentScore(Number(e.target.value))} style={{ flex: 1, cursor: 'pointer', height: '8px', accentColor: '#f59e0b' }} />
-                              <span style={{ color: '#64748b', fontWeight: 'bold' }}>100</span>
+                          <div style={{ flex: '2 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ color: '#64748b', fontWeight: 'bold', fontSize: '0.8rem' }}>0</span>
+                              <input type="range" min="0" max="100" value={props.currentScore === '' ? 0 : props.currentScore} onChange={e => props.setCurrentScore(Number(e.target.value))} style={{ flex: 1, cursor: 'pointer', height: '6px', accentColor: '#f59e0b' }} />
+                              <span style={{ color: '#64748b', fontWeight: 'bold', fontSize: '0.8rem' }}>100</span>
                             </div>
                           </div>
 
-                          <div style={{ flex: '1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '15px', minWidth: '220px' }}>
-                            <input type="number" min="0" max="100" placeholder={t('judgingConsoleScorePlaceholder')} value={props.currentScore} onChange={e => props.setCurrentScore(e.target.value ? Number(e.target.value) : '')} onKeyDown={e => { if(e.key === 'Enter' && props.currentScore !== '' && !isSubmittingVote) { setIsSubmittingVote(true); props.submitVote(); } }} style={{ width: '100px', fontSize: '2.2rem', padding: '8px', textAlign: 'center', background: '#1e293b', border: '2px solid #f59e0b', color: '#f59e0b', borderRadius: '12px', fontWeight: '900', outline: 'none' }} />
-                            <button onClick={() => { setIsSubmittingVote(true); props.submitVote(); }} disabled={props.currentScore === '' || isSubmittingVote} style={{ background: props.currentScore === '' || isSubmittingVote ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: props.currentScore === '' || isSubmittingVote ? '#64748b' : 'white', border: 'none', padding: '16px 32px', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', cursor: props.currentScore === '' || isSubmittingVote ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}>{isSubmittingVote ? '...' : t('contSave')}</button>
+                          <div style={{ flex: '1 1 180px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                            <input type="number" min="0" max="100" placeholder={t('judgingConsoleScorePlaceholder')} value={props.currentScore} onChange={e => props.setCurrentScore(e.target.value ? Number(e.target.value) : '')} onKeyDown={e => { if(e.key === 'Enter' && props.currentScore !== '' && !isSubmittingVote) { setIsSubmittingVote(true); props.submitVote(); } }} style={{ width: '80px', fontSize: '1.6rem', padding: '6px', textAlign: 'center', background: '#1e293b', border: '2px solid #f59e0b', color: '#f59e0b', borderRadius: '10px', fontWeight: '900', outline: 'none' }} />
+                            <button onClick={() => { setIsSubmittingVote(true); props.submitVote(); }} disabled={props.currentScore === '' || isSubmittingVote} style={{ background: props.currentScore === '' || isSubmittingVote ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: props.currentScore === '' || isSubmittingVote ? '#64748b' : 'white', border: 'none', padding: '12px 20px', borderRadius: '10px', fontSize: '1rem', fontWeight: 'bold', cursor: props.currentScore === '' || isSubmittingVote ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}>{isSubmittingVote ? '...' : t('contSave')}</button>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#0f172a' }}>
-                        <div style={{ fontSize: '5rem', marginBottom: '20px' }}>🎉</div>
-                        <h2 style={{ color: '#10b981', fontSize: '2rem', margin: '0 0 10px 0' }}>{t('judgingConsoleScoredAllTitle')}</h2>
-                        <p style={{ color: '#94a3b8', marginBottom: '25px' }}>{t('judgingConsoleScoredAllDesc')}</p>
-                        <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px 25px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{t('judgingConsoleBackBtn')}</button>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#0f172a', padding: '20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '4rem', marginBottom: '16px' }}>🎉</div>
+                        <h2 style={{ color: '#10b981', fontSize: '1.6rem', margin: '0 0 10px 0', wordBreak: 'break-word' }}>{t('judgingConsoleScoredAllTitle')}</h2>
+                        <p style={{ color: '#94a3b8', marginBottom: '20px', fontSize: '0.9rem' }}>{t('judgingConsoleScoredAllDesc')}</p>
+                        <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.88rem' }}>{t('judgingConsoleBackBtn')}</button>
                       </div>
                     )}
                   </div>
                 ) : props.viewResultsContestId === contest.id ? (
-                  <div style={{ background: '#0f172a', padding: '25px', borderRadius: '16px', border: '1px solid #10b98140' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
-                      <h3 style={{ margin: '0', color: '#10b981', fontSize: '1.3rem' }}>{t('resultsTitle')}</h3>
+                  <div style={{ background: '#0f172a', padding: '16px', borderRadius: '14px', border: '1px solid #10b98140', boxSizing: 'border-box' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '12px', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                      <h3 style={{ margin: '0', color: '#10b981', fontSize: '1.1rem' }}>{t('resultsTitle')}</h3>
                       
-                      <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         {canManageContest && (
                           <button 
                             onClick={() => generateJuryReportPdf(contest, props.contestResults, contestJury)} 
                             disabled={isJuryDocCompiling}
-                            style={{ background: '#4c1d95', color: 'white', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                            style={{ background: '#4c1d95', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
                           >
-                            {isJuryDocCompiling ? '⏳...' : '📄 MAFOSZ Jegyzőkönyv (.PDF)'}
+                            {isJuryDocCompiling ? '⏳...' : '📄 MAFOSZ PDF'}
                           </button>
                         )}
-                        <button onClick={() => props.setViewResultsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('juryProgressClose')}</button>
+                        <button onClick={() => props.setViewResultsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>{t('juryProgressClose')}</button>
                       </div>
                     </div>
                     
@@ -905,9 +893,9 @@ export default function ContestsView(props: ContestsViewProps) {
                         const accScore = currentCatSettings.acceptanceScore || 9999; 
 
                         return (
-                          <div key={cat} style={{ marginBottom: '30px' }}>
-                            <h4 style={{ color: '#38bdf8', borderBottom: '2px solid #38bdf840', display: 'inline-block', paddingBottom: '4px', marginBottom: '15px', fontSize: '1.1rem' }}>📂 {cat}{t('resultsSectionUnit')}</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div key={cat} style={{ marginBottom: '20px' }}>
+                            <h4 style={{ color: '#38bdf8', borderBottom: '2px solid #38bdf840', display: 'inline-block', paddingBottom: '4px', marginBottom: '12px', fontSize: '1rem', wordBreak: 'break-word' }}>📂 {cat}{t('resultsSectionUnit')}</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                               {catResults.map((res, index) => {
                                 const awardName = awardsArr[index]; 
                                 const isAcceptance = !awardName && res.total_score >= accScore;
@@ -918,26 +906,26 @@ export default function ContestsView(props: ContestsViewProps) {
                                 else if (index === 2) { awardColor = '#d97706'; awardBg = '#d9770615'; awardBorder = '#d9770640'; awardIcon = '🥉'; }
 
                                 return (
-                                  <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '12px', borderRadius: '12px', border: awardName ? `1px solid ${awardBorder}` : isAcceptance ? '1px solid #10b98130' : '1px solid transparent', gap: '15px' }} key={res.id}>
-                                    <div style={{ fontSize: '1.3rem', fontWeight: '900', width: '35px', color: awardColor }}>#{index + 1}</div>
-                                    <img src={getImageUrl(res.drive_file_id, res.file_url)} alt="Artwork" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', background: '#0f172a' }} onClick={() => props.setFullscreenData({url: getImageUrl(res.drive_file_id, res.file_url), title: res.title})} />
-                                    <div style={{ flex: 1 }}>
-                                      <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '1rem' }}>
-                                        {res.title}
-                                        {awardName && <span style={{ background: awardBg, color: awardColor, padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', border: `1px solid ${awardBorder}`, fontWeight: 'bold' }}>{awardIcon} {awardName}</span>}
-                                        {isAcceptance && <span style={{ background: '#10b98115', color: '#10b981', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', border: '1px solid #10b98130', fontWeight: 'bold' }}>{t('resultsAccepted')}</span>}
+                                  <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '10px', border: awardName ? `1px solid ${awardBorder}` : isAcceptance ? '1px solid #10b98130' : '1px solid transparent', gap: '10px', boxSizing: 'border-box', width: '100%', minWidth: 0 }} key={res.id}>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: '900', width: '28px', color: awardColor, flexShrink: 0 }}>#{index + 1}</div>
+                                    <img src={getImageUrl(res.drive_file_id, res.file_url)} alt="Artwork" referrerPolicy="no-referrer" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', background: '#0f172a', flexShrink: 0 }} onClick={() => props.setFullscreenData({url: getImageUrl(res.drive_file_id, res.file_url), title: res.title})} />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '0.9rem', wordBreak: 'break-word' }}>
+                                        <span style={{ wordBreak: 'break-word' }}>{res.title}</span>
+                                        {awardName && <span style={{ background: awardBg, color: awardColor, padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', border: `1px solid ${awardBorder}`, fontWeight: 'bold' }}>{awardIcon} {awardName}</span>}
+                                        {isAcceptance && <span style={{ background: '#10b98115', color: '#10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', border: '1px solid #10b98130', fontWeight: 'bold' }}>{t('resultsAccepted')}</span>}
                                       </div>
-                                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>{lang === 'en' ? 'Photographer' : 'Fotós'}: {res.user_name}</div>
+                                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px', wordBreak: 'break-word' }}>{lang === 'en' ? 'Photographer' : 'Fotós'}: {res.user_name}</div>
                                       
                                         {(props.user.email === res.user_email || canManageContest) && (awardName || isAcceptance) && (
-                                          <button onClick={() => generateCertificate(contest, res, awardName || '', isAcceptance, contestJury)} disabled={generatingCertId === res.id} style={{ marginTop: '8px', background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '4px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                                          <button onClick={() => generateCertificate(contest, res, awardName || '', isAcceptance, contestJury)} disabled={generatingCertId === res.id} style={{ marginTop: '6px', background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer' }}>
                                             {generatingCertId === res.id ? t('resultsCertCompiling') : t('resultsCertDownloadBtn')}
                                           </button>
                                         )}
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981' }}>{res.total_score}{t('trophyPointsUnit')}</div>
-                                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{res.vote_count}{t('resultsVotesCount')}</div>
+                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                      <div style={{ fontSize: '1rem', fontWeight: '900', color: '#10b981' }}>{res.total_score}{t('trophyPointsUnit')}</div>
+                                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{res.vote_count}{t('resultsVotesCount')}</div>
                                     </div>
                                   </div>
                                 )
@@ -951,108 +939,108 @@ export default function ContestsView(props: ContestsViewProps) {
                 ) : (
                   /* STANDARD KÁRTYA MEGJELENÍTÉS */
                   <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px', marginBottom: '15px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                          <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#f8fafc', fontWeight: 'bold' }}>{contest.title}</h3>
-                          <span style={{ background: badgeBg, color: badgeColor, padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', border: `1px solid ${badgeColor}30` }}>{badgeText}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
+                      <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#f8fafc', fontWeight: 'bold', wordBreak: 'break-word' }}>{contest.title}</h3>
+                          <span style={{ background: badgeBg, color: badgeColor, padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', border: `1px solid ${badgeColor}30`, whiteSpace: 'nowrap' }}>{badgeText}</span>
                           {isFeeRequired && (
-                            <span style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('contCardFee')}{entryFee} {contest.fee_currency}</span>
+                            <span style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{t('contCardFee')}{entryFee} {contest.fee_currency}</span>
                           )}
                         </div>
                         
                         {sponsorClubObj && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a50', padding: '8px 14px', borderRadius: '10px', border: '1px solid #334155', width: 'fit-content', marginTop: '12px' }}>
-                            <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>{t('contCardSponsor')}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0f172a50', padding: '6px 12px', borderRadius: '8px', border: '1px solid #334155', width: 'fit-content', marginTop: '10px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: '600' }}>{t('contCardSponsor')}</span>
                             {sponsorClubObj.drive_logo_id && (
-                              <img src={getImageUrl(sponsorClubObj.drive_logo_id, sponsorClubObj.logo_url)} alt="Club Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                              <img src={getImageUrl(sponsorClubObj.drive_logo_id, sponsorClubObj.logo_url)} alt="Club Logo" referrerPolicy="no-referrer" style={{ width: '20px', height: '22px', objectFit: 'contain' }} />
                             )}
-                            <strong style={{ color: '#38bdf8', fontSize: '0.9rem' }}>{sponsorClubObj.name}</strong>
+                            <strong style={{ color: '#38bdf8', fontSize: '0.85rem', wordBreak: 'break-word' }}>{sponsorClubObj.name}</strong>
                           </div>
                         )}
 
-                        <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '12px 0 0 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{contest.description}</p>
+                        <p style={{ color: '#cbd5e1', fontSize: '0.88rem', margin: '10px 0 0 0', lineHeight: '1.5', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{contest.description}</p>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         {canManageContest && (
                           <>
-                            <button onClick={() => props.loadStats(contest.id)} style={{ background: '#0f172a', border: '1px solid #334155', color: '#cbd5e1', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnEntrants')}</button>
+                            <button onClick={() => props.loadStats(contest.id)} style={{ background: '#0f172a', border: '1px solid #334155', color: '#cbd5e1', fontSize: '0.78rem', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnEntrants')}</button>
                             {contestJury.length > 0 && (
-                              <button onClick={() => props.loadJuryProgress(contest.id)} style={{ background: '#0f172a', border: '1px solid #a78bfa40', color: '#a78bfa', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnJuryProgress')}</button>
+                              <button onClick={() => props.loadJuryProgress(contest.id)} style={{ background: '#0f172a', border: '1px solid #a78bfa40', color: '#a78bfa', fontSize: '0.78rem', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnJuryProgress')}</button>
                             )}
                             {(props.user.email === ADMIN_EMAIL || props.isLeader) && (
                               <>
-                                <button onClick={() => props.startEdit(contest)} style={{ background: '#0f172a', border: '1px solid #f59e0b40', color: '#f59e0b', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>{t('contBtnEdit')}</button>
-                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.setManageJuryContestId(contest.id)} style={{ background: '#0f172a', border: '1px solid #8b5cf640', color: '#8b5cf6', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>{t('contBtnJury')} ({contestJury.length})</button>}
-                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnDelete')}</button>}
+                                <button onClick={() => props.startEdit(contest)} style={{ background: '#0f172a', border: '1px solid #f59e0b40', color: '#f59e0b', fontSize: '0.78rem', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer' }}>{t('contBtnEdit')}</button>
+                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.setManageJuryContestId(contest.id)} style={{ background: '#0f172a', border: '1px solid #8b5cf640', color: '#8b5cf6', fontSize: '0.78rem', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer' }}>{t('contBtnJury')} ({contestJury.length})</button>}
+                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', fontSize: '0.78rem', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnDelete')}</button>}
                               </>
                             )}
                           </>
                         )}
                         {isEnded && contest.entry_count > 0 && (canManageContest || isJudgingComplete) && (
-                          <button onClick={() => props.loadResults(contest.id)} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: 'white', fontSize: '0.85rem', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>{t('contBtnResults')}</button>
+                          <button onClick={() => props.loadResults(contest.id)} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: 'white', fontSize: '0.82rem', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>{t('contBtnResults')}</button>
                         )}
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '20px', fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0', background: '#0f172a', padding: '10px 20px', borderRadius: '10px', border: '1px solid #334155', width: 'fit-content', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: '#94a3b8', margin: '12px 0', background: '#0f172a', padding: '8px 14px', borderRadius: '8px', border: '1px solid #334155', width: 'fit-content', flexWrap: 'wrap', boxSizing: 'border-box', maxWidth: '100%' }}>
                       <span>{t('contCardPeriod')}<b>{start.getFullYear() > 1970 ? `${start.toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')} - ${end.toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')}` : t('contNoSponsor')}</b></span>
                       <span>{t('contCardTotalImages')}<b>{contest.entry_count || 0}{lang === 'en' ? ' pcs' : ' db'}</b></span>
                     </div>
 
                     {contestJury.length > 0 && (
-                      <div style={{ fontSize: '0.85rem', color: '#a78bfa', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#a78bfa', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px', wordBreak: 'break-word' }}>
                         <span>{t('contCardJuryList')}<b>{contestJury.map(j => props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ')}</b></span>
                       </div>
                     )}
 
                     {/* ZSŪRI PANEL */}
                     {isUserJury && (
-                      <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '25px', flexWrap: 'wrap' }}>
+                      <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '12px', borderRadius: '0 10px 10px 0', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                         <div>
-                          <strong style={{ color: '#f59e0b' }}>{t('contJuryBannerTitle')}</strong>
-                          <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '4px' }}>
+                          <strong style={{ color: '#f59e0b', fontSize: '0.9rem' }}>{t('contJuryBannerTitle')}</strong>
+                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>
                             {isActive ? t('contJuryBannerSoon') : isEnded ? (isDoneJudging ? t('contJuryBannerDone') : t('contJuryBannerReady')) : t('contJuryBannerNotStarted')}
                           </div>
                         </div>
                         {isEnded && !isDoneJudging && (
-                          <button onClick={() => props.startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '8px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{t('contBtnOpenJudging')}</button>
+                          <button onClick={() => props.startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>{t('contBtnOpenJudging')}</button>
                         )}
                       </div>
                     )}
 
                     {/* NEVEZÉS INDÍTÁSA GOMB */}
                     {isActive && !isUserJury && props.activeUploadContest !== contest.id && (
-                      <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }}>{t('contBtnNewUpload')}</button>
+                      <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.88rem', marginBottom: '12px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)', width: '100%' }}>{t('contBtnNewUpload')}</button>
                     )}
 
                     {/* MODERNIZÁLT NEVEZÉSI PANEL */}
                     {props.activeUploadContest === contest.id && (
-                      <div style={{ background: '#0f172a', padding: '25px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
+                      <div style={{ background: '#0f172a', padding: '18px', borderRadius: '14px', marginBottom: '16px', border: '1px solid #334155', boxSizing: 'border-box' }}>
                         
                         {!hasRequiredProfileData ? (
-                          <div style={{ textAlign: 'center', padding: '15px 10px' }}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>⚠️</div>
-                            <h4 style={{ color: '#fb923c', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                          <div style={{ textAlign: 'center', padding: '10px' }}>
+                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⚠️</div>
+                            <h4 style={{ color: '#fb923c', margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 'bold' }}>
                               {lang === 'en' ? 'Incomplete Competition Profile' : 'Hiányos Pályázati Profil'}
                             </h4>
-                            <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 20px 0' }}>
+                            <p style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: '1.4', margin: '0 0 16px 0', wordBreak: 'break-word' }}>
                               {lang === 'en' 
                                 ? 'According to rules, you must provide your phone number and delivery address before submitting entries.' 
-                                : 'A hivatalos szabályzat értelmében a nevezés elindítása előtt meg kell adnod a telefonszámodat és a postázási cíbedet az esetleges nyeremények kiküldéséhez.'}
+                                : 'A hivatalos szabályzat értelmében a nevezés elindítása előtt meg kell adnod a telefonszámodat és a postázási címedet az esetleges nyeremények kiküldéséhez.'}
                             </p>
                             <button 
                               onClick={() => props.setActiveTab ? props.setActiveTab('profile') : window.location.href='/profile'}
-                              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '10px 24px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer' }}
+                              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '8px 18px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.82rem', cursor: 'pointer' }}
                             >
                               ⚙️ {lang === 'en' ? 'Go to Profile Settings' : 'Profil adatok kitöltése'}
                             </button>
-                            <button onClick={() => props.setActiveUploadContest(null)} style={{ background: 'transparent', color: '#64748b', border: 'none', marginLeft: '15px', fontSize: '0.85rem', cursor: 'pointer' }}>{t('contCancel')}</button>
+                            <button onClick={() => props.setActiveUploadContest(null)} style={{ background: 'transparent', color: '#64748b', border: 'none', marginLeft: '10px', fontSize: '0.82rem', cursor: 'pointer' }}>{t('contCancel')}</button>
                           </div>
                         ) : (
                           <>
-                            <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.1rem', marginBottom: '15px'}}>{t('contUploadPanelTitle')}</h4>
+                            <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1rem', marginBottom: '12px'}}>{t('contUploadPanelTitle')}</h4>
                             
                             <input placeholder={t('contUploadTitlePlaceholder')} value={props.uploadTitle} onChange={e => props.setUploadTitle(e.target.value)} style={inputStyle} disabled={props.isUploading} />
                             
@@ -1064,42 +1052,42 @@ export default function ContestsView(props: ContestsViewProps) {
                               })}
                             </select>
                             
-                            <div style={{ background: 'rgba(167, 139, 250, 0.04)', padding: '12px 15px', borderRadius: '10px', fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '18px', border: '1px solid rgba(167,139,250,0.15)', lineHeight: '1.4' }}>
+                            <div style={{ background: 'rgba(167, 139, 250, 0.04)', padding: '10px 12px', borderRadius: '8px', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '14px', border: '1px solid rgba(167,139,250,0.15)', lineHeight: '1.4', wordBreak: 'break-word' }}>
                               💡 <b>{lang === 'en' ? 'RAW Camera File Rule (2026):' : 'RAW Kamerafájl Szabályozás (2026):'}</b>{' '}
                               {lang === 'en'
                                 ? 'The organizer reserves the right to request original RAW files to verify copyright authenticity.'
                                 : 'A pályázat rendezői a visszaélések elkerülése végett jogosultak bekérni az eredeti nyers kamerafájlokat (RAW). Nevezésével vállalja ezek megőrzését.'}
                             </div>
 
-                            <input type="file" accept="image/jpeg, image/png, image/webp" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={props.isUploading} />
+                            <input type="file" accept="image/jpeg, image/png, image/webp" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '12px', width: '100%', fontSize: '0.8rem' }} disabled={props.isUploading} />
                             
-                            {props.uploadPreview && <div style={{marginBottom: '20px', textAlign: 'center'}}><img src={props.uploadPreview} alt="Preview" style={{maxHeight: '260px', borderRadius: '12px', border: '2px solid #334155'}} /></div>}
+                            {props.uploadPreview && <div style={{marginBottom: '16px', textAlign: 'center'}}><img src={props.uploadPreview} alt="Preview" referrerPolicy="no-referrer" style={{maxHeight: '220px', borderRadius: '10px', border: '2px solid #334155'}} /></div>}
                             
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: '#090d16', padding: '15px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #223147' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: '#090d16', padding: '12px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #223147' }}>
                               <input 
                                 type="checkbox" 
                                 id="legal-copyright-checkbox" 
                                 checked={isLegalChecked}
                                 onChange={(e) => setIsLegalChecked(e.target.checked)}
-                                style={{ marginTop: '3px', transform: 'scale(1.2)', accentColor: '#10b981', cursor: 'pointer' }} 
+                                style={{ marginTop: '2px', transform: 'scale(1.1)', accentColor: '#10b981', cursor: 'pointer', flexShrink: 0 }} 
                               />
-                              <label htmlFor="legal-copyright-checkbox" style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.4', cursor: 'pointer', userSelect: 'none' }}>
+                              <label htmlFor="legal-copyright-checkbox" style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: '1.4', cursor: 'pointer', userSelect: 'none', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                                 {lang === 'en' 
                                   ? 'I declare under penalty of perjury that the uploaded image is my own original creation, I hold all copyrights, it contains no uncredited AI assets, and I accept the terms of the competition.' 
-                                  : 'Kijelentem és szavatolom, hogy a feltöltött fotó saját, eredeti alkotásom, amely felett kizárólas szerzői joggal rendelkezem, nem tartalmaz engedély nélküli generatív AI elemeket, továbbá elfogadom a pályázati kiírás adatvédelmi feltételeit.'}
+                                  : 'Kijelentem és szavatolom, hogy a feltöltött fotó saját, eredeti alkotásom, amely felett kizárólagos szerzői joggal rendelkezem, nem tartalmaz engedély nélküli generatív AI elemeket, továbbá elfogadom a pályázati kiírás adatvédelmi feltételeit.'}
                               </label>
                             </div>
 
-                            <div style={{display: 'flex', gap: '10px'}}>
+                            <div style={{display: 'flex', gap: '8px'}}>
                               <button 
                                 id="final-upload-submit-btn"
                                 onClick={() => props.handleUpload(contest.id)} 
                                 disabled={!isLegalChecked || props.isUploading} 
-                                style={{ flex: 1, background: (!isLegalChecked || props.isUploading) ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: (!isLegalChecked || props.isUploading) ? '#64748b' : 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: (!isLegalChecked || props.isUploading) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                                style={{ flex: 1, background: (!isLegalChecked || props.isUploading) ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: (!isLegalChecked || props.isUploading) ? '#64748b' : 'white', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: (!isLegalChecked || props.isUploading) ? 'not-allowed' : 'pointer', transition: 'all 0.2s', fontSize: '0.88rem' }}
                               >
                                 {props.isUploading ? t('contUploadSaving') : t('contUploadSubmitBtn')}
                               </button>
-                              <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>{t('contCancel')}</button>
+                              <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>{t('contCancel')}</button>
                             </div>
                           </>
                         )}
@@ -1107,56 +1095,56 @@ export default function ContestsView(props: ContestsViewProps) {
                     )}
 
                     {myContestEntries.length > 0 && isFeeRequired && !hasPaid && (
-                      <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', border: '1px solid #f59e0b40', padding: '20px', borderRadius: '24px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                      <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', border: '1px solid #f59e0b40', padding: '16px', borderRadius: '16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                         <div>
-                          <strong style={{ color: '#f59e0b', fontSize: '1.1rem' }}>{t('contPayBannerTitle')}</strong>
-                          <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '5px 0 0 0', lineHeight: '1.5' }}>
+                          <strong style={{ color: '#f59e0b', fontSize: '1rem' }}>{t('contPayBannerTitle')}</strong>
+                          <p style={{ color: '#cbd5e1', fontSize: '0.85rem', margin: '4px 0 0 0', lineHeight: '1.4', wordBreak: 'break-word' }}>
                             {t('contPayBannerDesc')}<br/>
                             {t('contPayAmount')}<span style={{color: 'white', fontWeight: 'bold'}}>{entryFee} {contest.fee_currency}</span>
                           </p>
                         </div>
-                        <button onClick={() => props.handlePayContestFee(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>{t('contBtnPayStripe')}</button>
+                        <button onClick={() => props.handlePayContestFee(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.3)', fontSize: '0.85rem' }}>{t('contBtnPayStripe')}</button>
                       </div>
                     )}
 
                     {myContestEntries.length > 0 && isFeeRequired && hasPaid && (
-                      <div style={{ background: '#10b98110', border: '1px solid #10b98130', padding: '12px 20px', borderRadius: '10px', marginBottom: '20px', color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                      <div style={{ background: '#10b98110', border: '1px solid #10b98130', padding: '10px 16px', borderRadius: '8px', marginBottom: '16px', color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold' }}>
                         {t('contPaySuccessNotice')}
                       </div>
                     )}
 
                     {/* SAJÁT NEVEZÉSEK GALÉRIA */}
                     {myContestEntries.length > 0 && (
-                      <div style={{ marginTop: '25px', borderTop: '1px solid #334155', paddingTop: '25px' }}>
-                        <h4 style={{margin: '0 0 20px 0', fontSize: '1.1rem', color: '#94a3b8', letterSpacing: '0.5px', textTransform: 'uppercase'}}>{t('contMyGalleryTitle')}</h4>
+                      <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
+                        <h4 style={{margin: '0 0 16px 0', fontSize: '1rem', color: '#94a3b8', letterSpacing: '0.5px', textTransform: 'uppercase'}}>{t('contMyGalleryTitle')}</h4>
                         {categories.map((cat: string) => {
                           const catEntries = myContestEntries.filter(e => e.category === cat);
                           if (catEntries.length === 0) return null;
                           return (
-                            <div key={cat} style={{ marginBottom: '20px' }}>
-                              <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #1e293b', paddingBottom: '6px', marginTop: 0, fontSize: '1rem', fontWeight: 'bold' }}>{cat}{t('contSectionUnit')}<span style={{ color: '#64748b', fontSize: '0.85rem' }}>({catEntries.length}/4)</span></h5>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '20px' }}>
+                            <div key={cat} style={{ marginBottom: '16px' }}>
+                              <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #1e293b', paddingBottom: '4px', marginTop: 0, fontSize: '0.9rem', fontWeight: 'bold', wordBreak: 'break-word' }}>{cat}{t('contSectionUnit')}<span style={{ color: '#64748b', fontSize: '0.8rem' }}>({catEntries.length}/4)</span></h5>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
                                 {catEntries.map(entry => {
                                   const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                                   return (
-                                    <div key={entry.id} style={{ background: '#0f172a', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
-                                      <img src={imageUrl} alt={entry.title} onClick={() => props.setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '130px', objectFit: 'cover', cursor: 'zoom-in', background: '#1e293b' }} />
+                                    <div key={entry.id} style={{ background: '#0f172a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
+                                      <img src={imageUrl} alt={entry.title} referrerPolicy="no-referrer" onClick={() => props.setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '110px', objectFit: 'cover', cursor: 'zoom-in', background: '#1e293b' }} />
                                       
                                       {props.editingEntryId === entry.id ? (
-                                        <div style={{ padding: '10px' }}>
-                                          <input value={props.editEntryTitle} onChange={e => props.setEditEntryTitle(e.target.value)} style={{ width: '100%', padding: '6px', marginBottom: '8px', backgroundColor: '#1e293b', border: '1px solid #38bdf8', color: 'white', borderRadius: '6px', fontSize: '0.85rem' }} />
+                                        <div style={{ padding: '8px' }}>
+                                          <input value={props.editEntryTitle} onChange={e => props.setEditEntryTitle(e.target.value)} style={{ width: '100%', padding: '4px 6px', marginBottom: '6px', backgroundColor: '#1e293b', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box' }} />
                                           <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button onClick={() => props.handleUpdateEntryTitle(entry.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>{t('contSave')}</button>
-                                            <button onClick={() => props.setEditingEntryId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>{t('contCancel')}</button>
+                                            <button onClick={() => props.handleUpdateEntryTitle(entry.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '4px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer' }}>{t('contSave')}</button>
+                                            <button onClick={() => props.setEditingEntryId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '4px', borderRadius: '4px', fontSize: '0.72rem', cursor: 'pointer' }}>{t('contCancel')}</button>
                                           </div>
                                         </div>
                                       ) : (
-                                        <div style={{ padding: '12px' }}>
-                                          <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#cbd5e1' }}>{entry.title}</div>
+                                        <div style={{ padding: '8px' }}>
+                                          <div style={{ fontSize: '0.82rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#cbd5e1' }}>{entry.title}</div>
                                           {!isEnded && (
-                                            <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
-                                              <button onClick={() => { props.setEditingEntryId(entry.id); props.setEditEntryTitle(entry.title); }} style={{ flex: 1, background: '#1e293b', color: '#38bdf8', border: '1px solid #38bdf830', padding: '5px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>{t('contBagdeEditTitle') || t('contBtnEditTitle')}</button>
-                                              <button onClick={() => props.handleDeleteEntry(entry.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>✕</button>
+                                            <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
+                                              <button onClick={() => { props.setEditingEntryId(entry.id); props.setEditEntryTitle(entry.title); }} style={{ flex: 1, background: '#1e293b', color: '#38bdf8', border: '1px solid #38bdf830', padding: '4px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('contBagdeEditTitle') || t('contBtnEditTitle')}</button>
+                                              <button onClick={() => props.handleDeleteEntry(entry.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>✕</button>
                                             </div>
                                           )}
                                         </div>
