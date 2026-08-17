@@ -262,6 +262,8 @@ export default function Header({
   const isAdminUser = user?.email === ADMIN_EMAIL;
   const headerRef = useRef<HTMLDivElement>(null);
 
+  const APK_DOWNLOAD_URL = "https://github.com/vRudi80/PhotoApp/releases/download/v1.1/photawesome.apk";
+
   let theme = 'dark';
   let toggleTheme = () => {};
   try {
@@ -352,7 +354,7 @@ export default function Header({
             </div>
 
             <a 
-              href="https://github.com/vRudi80/PhotoApp/releases/download/v1.1/photawesome.apk" 
+              href={APK_DOWNLOAD_URL} 
               download="photawesome.apk" 
               style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.4)', padding: '6px 12px', borderRadius: '8px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
@@ -530,7 +532,7 @@ export default function Header({
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           
           <a 
-            href="/photawesome.apk" 
+            href={APK_DOWNLOAD_URL} 
             download="photawesome.apk" 
             title="PhotAwesome Android Alkalmazás Letöltése (APK)"
             style={{ background: 'var(--bg-main, #0f172a)', border: '1px solid var(--border-main, #222f47)', color: '#10b981', padding: '6px 10px', borderRadius: '8px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -547,7 +549,7 @@ export default function Header({
             <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? 'rgba(255,255,255,0.08)' : 'transparent', color: lang === 'en' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>EN</button>
           </div>
           
-          {/* ASZTALI PROFIL MENÜDROPDOWN (HELYREÁLLÍTVA) */}
+          {/* ASZTALI PROFIL MENÜDROPDOWN */}
           <div className="nav-item-container desktop-user-dropdown" style={{ position: 'relative' }}>
             <button className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} style={{ color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}>
               <img src={avatarUrl} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #10b981' }} />
