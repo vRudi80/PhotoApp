@@ -1464,9 +1464,42 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           .arena-progress-card-wrapper { overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 8px !important; }
           .arena-progress-track-line { min-width: 920px !important; }
         }
-        .arena-rank-tooltip-box { position: absolute; bottom: 145%; left: 50%; transform: translateX(-50%) translateY(4px); background: var(--bg-main); color: var(--text-title); border: 1px solid var(--border-main); border-radius: 6px; width: 230px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); z-index: 999999 !important; opacity: 0; pointer-events: none; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); padding: 10px; text-align: center; }
-        .arena-rank-tooltip-box::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border-width: 5px; border-style: solid; border-color: var(--bg-main) transparent transparent transparent; }
-        .arena-rank-tooltip-container:hover .arena-rank-tooltip-box { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        .arena-rank-tooltip-box { 
+  position: absolute; 
+  top: 135%; /* 🎯 Felfelé nyílás helyett LEFELÉ nyílik a rangsor sáv alá */
+  left: 50%; 
+  transform: translateX(-50%) translateY(-4px); 
+  background: var(--bg-main); 
+  color: var(--text-title); 
+  border: 1px solid var(--border-main); 
+  border-radius: 6px; 
+  width: 230px; 
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4); 
+  z-index: 999999 !important; 
+  opacity: 0; 
+  pointer-events: none; 
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); 
+  padding: 10px; 
+  text-align: center; 
+}
+
+/* 🎯 A nyíl átállítása a doboz TETEJÉRE (felfelé mutat) */
+.arena-rank-tooltip-box::after { 
+  content: ""; 
+  position: absolute; 
+  bottom: 100%; 
+  left: 50%; 
+  transform: translateX(-50%); 
+  border-width: 5px; 
+  border-style: solid; 
+  border-color: transparent transparent var(--bg-main) transparent; 
+}
+
+.arena-rank-tooltip-container:hover .arena-rank-tooltip-box { 
+  opacity: 1; 
+  transform: translateX(-50%) translateY(0); 
+  pointer-events: auto; 
+}
         .arena-floating-chat-dock { position: fixed; bottom: 0; right: 30px; width: 340px; background: var(--bg-card); border: 1px solid var(--border-main); border-bottom: none; border-radius: 4px 4px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.15); z-index: 1000; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
         .arena-floating-chat-dock.is-open { transform: translateY(0); }
         .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 44px)); }
