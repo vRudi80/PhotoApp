@@ -3,7 +3,6 @@ import { BACKEND_URL } from '../../../utils/constants';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
 
-// 🎯 JAVÍTVA: Az Image ikont átneveztük ImageIcon-ra, így nem ütközik a natív böngészős Image objektummal!
 import { 
   Swords, 
   FileText, 
@@ -13,15 +12,8 @@ import {
   Upload 
 } from 'lucide-react';
 
-interface BattlePlannerProps {
-  user: any;
-  onSuccess: () => void;
-}
-
-// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség - Golyóálló védelemmel)
 const compressImageOnClient = (file: File): Promise<File> => {
   return new Promise((resolve) => {
-    // 🎯 IDŐTÚLLÉPÉSI VÉDŐHÁLÓ: Ha 2.5 másodpercen belül bármiért elakadna, engedje át a nyers képet, ne fagyassza le az oldalt!
     const timeoutId = setTimeout(() => {
       console.warn("⚡ Képtömörítés túllépte az időkorlátot, az eredeti nyers képet használjuk.");
       resolve(file);
@@ -36,7 +28,6 @@ const compressImageOnClient = (file: File): Promise<File> => {
     };
 
     reader.onload = (event) => {
-      // 🎯 JAVÍTVA: window.Image-ként hivatkozunk rá, így 100%, hogy a böngésző natív képdekódolóját hívjuk meg
       const img = new window.Image();
       
       img.onerror = () => {
@@ -106,28 +97,22 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     }
   } catch (e) {}
 
-  // 🎯 JAVÍTVA: Azonnali kép-előnézet generálás, háttérben futó aszinkron tömörítéssel
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const rawFile = e.target.files[0];
       
-      // 1. Azonnal megmutatjuk az előnézetet a nyers képből, hogy a felhasználó lássa a sikeres választást!
       if (preview) URL.revokeObjectURL(preview);
       setPreview(URL.createObjectURL(rawFile));
-      setCoverFile(rawFile); // Beállítjuk alapértelmezettnek a nyers képet
+      setCoverFile(rawFile);
 
-      // 2. Ha a kép nagyobb mint 2MB, elindítjuk a háttértömörítést
       if (rawFile.size > 2 * 1024 * 1024) {
         try {
-          console.log("⚡ Óriás borítókép észlelve, kliens oldali zsugorítás indul...");
           const finalFile = await compressImageOnClient(rawFile);
-          
           setCoverFile(finalFile);
           if (preview) URL.revokeObjectURL(preview);
           setPreview(URL.createObjectURL(finalFile));
-          console.log(`💪 Tömörítés sikeres!`);
         } catch (compressErr) {
-          console.error("Hiba a tömörítés során, az eredeti képfájlt használjuk tovább:", compressErr);
+          console.error("Hiba a tömörítés során:", compressErr);
         }
       }
     }
@@ -190,30 +175,30 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     alignItems: 'center',
     gap: '6px',
     marginBottom: '6px',
-    fontSize: '0.82rem',
+    fontSize: '0.8rem',
     fontWeight: '600'
   };
 
   const inputStyle = {
     width: '100%',
-    padding: '10px 12px',
+    padding: '8px 10px',
     background: 'var(--bg-main)',
     border: '1px solid var(--border-main)',
     borderRadius: '4px',
     color: 'var(--text-title)',
     outline: 'none',
-    fontSize: '0.88rem',
+    fontSize: '0.85rem',
     boxSizing: 'border-box' as const
   };
 
   return (
-    <div style={{ maxWidth: '580px', margin: '0 auto', background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', animation: 'fadeIn 0.3s ease-out' }}>
-      <h2 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <Swords size={22} color="#f97316" /> {t('planTitle')}
+    <div style={{ width: '100%', maxWidth: '580px', margin: '0 auto', background: 'var(--bg-card)', padding: '18px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', animation: 'fadeIn 0.3s ease-out', boxSizing: 'border-box' }}>
+      <h2 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.2rem', fontWeight: '700', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: '8px', wordBreak: 'break-word' }}>
+        <Swords size={20} color="#f97316" /> {t('planTitle')}
       </h2>
-      <p style={{ color: 'var(--text-body)', fontSize: '0.82rem', margin: '0 0 20px 0', lineHeight: '1.45' }}>{t('planDesc')}</p>
+      <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', margin: '0 0 16px 0', lineHeight: '1.4', wordBreak: 'break-word' }}>{t('planDesc')}</p>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
         <div>
           <label style={labelStyle}>
             <FileText size={14} color="var(--text-muted)" /> {t('planLabelTitle')}
@@ -232,17 +217,17 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
           <label style={labelStyle}>
             <FileText size={14} color="var(--text-muted)" /> {t('planLabelDesc')}
           </label>
-          <textarea rows={3} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ ...inputStyle, resize: 'none', lineHeight: '1.45' }} />
+          <textarea rows={3} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ ...inputStyle, resize: 'none', lineHeight: '1.4' }} />
         </div>
 
         <div>
           <label style={{ ...labelStyle, color: isLight ? '#0284c7' : '#38bdf8' }}>
             <FileText size={14} /> {t('planLabelDescEn')}
           </label>
-          <textarea rows={3} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ ...inputStyle, border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', resize: 'none', lineHeight: '1.45' }} />
+          <textarea rows={3} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ ...inputStyle, border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', resize: 'none', lineHeight: '1.4' }} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
           <div>
             <label style={labelStyle}>
               <Calendar size={14} color="var(--text-muted)" /> {t('planLabelStart')}
@@ -257,20 +242,20 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
           <div>
             <label style={labelStyle}>
               <User size={14} color="var(--text-muted)" /> {t('planLabelMaster')}
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', height: '40px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', height: '38px', boxSizing: 'border-box' }}>
               <input 
                 type="checkbox" 
                 id="isMasterCheckbox"
                 checked={isMaster} 
                 onChange={e => setIsMaster(e.target.checked)} 
-                style={{ width: '16px', height: '16px', accentColor: '#f97316', cursor: 'pointer', margin: 0 }}
+                style={{ width: '16px', height: '16px', accentColor: '#f97316', cursor: 'pointer', margin: 0, flexShrink: 0 }}
               />
-              <label htmlFor="isMasterCheckbox" style={{ color: 'var(--text-body)', fontSize: '0.82rem', cursor: 'pointer', userSelect: 'none', fontWeight: '500' }}>
+              <label htmlFor="isMasterCheckbox" style={{ color: 'var(--text-body)', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none', fontWeight: '500', wordBreak: 'break-word' }}>
                 {t('planCheckMasterMe') || 'Szeretnék én lenni'}
               </label>
             </div>
@@ -285,19 +270,19 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
 
         <div>
           <label style={labelStyle}>
-            {/* 🎯 JAVÍTVA: Az átnevezett Lucide ikont használjuk az ütközés ellen */}
             <ImageIcon size={14} color="var(--text-muted)" /> {t('planLabelCover')} <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
           </label>
-          <input type="file" accept="image/*" onChange={handleFileChange} required style={{ color: 'var(--text-body)', fontSize: '0.82rem', display: 'block', cursor: 'pointer' }} />
+          <input type="file" accept="image/*" onChange={handleFileChange} required style={{ color: 'var(--text-body)', fontSize: '0.8rem', display: 'block', cursor: 'pointer', width: '100%' }} />
           {preview && (
-            <div style={{ marginTop: '12px', height: '130px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: 'var(--bg-main)' }}>
-              <img src={preview} alt={t('planPreviewAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{ marginTop: '10px', height: '120px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: 'var(--bg-main)' }}>
+              {/* 🎯 referrerPolicy="no-referrer" az Androidos képbetöltéshez */}
+              <img src={preview} alt={t('planPreviewAlt')} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
         </div>
 
-        <button type="submit" disabled={submitting} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '12px', borderRadius: '4px', fontSize: '0.95rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background 0.15s ease', marginTop: '6px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} className="battle-submit-btn">
-          <Upload size={16} />
+        <button type="submit" disabled={submitting} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', fontSize: '0.9rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background 0.15s ease', marginTop: '4px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} className="battle-submit-btn">
+          <Upload size={14} />
           <span>{submitting ? t('planSubmitting') : t('planSubmitBtn')}</span>
         </button>
       </form>
