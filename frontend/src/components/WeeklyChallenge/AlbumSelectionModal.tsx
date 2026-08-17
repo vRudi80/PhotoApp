@@ -3,13 +3,9 @@ import { getImageUrl } from '../../utils/helpers';
 import { BACKEND_URL } from '../../utils/constants';
 import exifr from 'exifr';
 
-// Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../context/LanguageContext';
-
-// Behozzuk a téma környezetet
 import { useTheme } from '../../context/ThemeContext';
 
-// Professzionális Lucide Ikonok importálása az AI-sallangok ellen
 import { 
   FolderPlus, 
   Camera, 
@@ -104,7 +100,6 @@ interface AlbumSelectionModalProps {
   myEntry?: any;
 }
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -127,7 +122,6 @@ export default function AlbumSelectionModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // BIZTONSÁGI VÉDŐHÁLÓ: Környezeti téma lekérése
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -146,9 +140,15 @@ export default function AlbumSelectionModal({
     }
   }, [isOpen]);
 
+  // 🎯 JAVÍTVA: A modál megnyitásakor mindig alaphelyzetbe állítjuk a folyamatjelzőket!
   useEffect(() => {
     if (isOpen) {
       setVisibleCount(12);
+      setIsSubmitting(false);
+      setPreviewPhoto(null);
+      setIsLocalProcessing(false);
+      setIsUploading(false);
+      setIsSwapping(false);
     }
   }, [isOpen]);
 
@@ -265,7 +265,6 @@ export default function AlbumSelectionModal({
 
         const endpoint = albumModalMode === 'upload' ? 'upload' : 'swap';
         
-        // 🎯 JAVÍTVA: Helyi fájl feltöltése és csere hitelesített tokennel (Content-Type nélkül!)
         const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, { 
           method: 'POST', 
           headers: getAuthHeaders(),
@@ -303,7 +302,6 @@ export default function AlbumSelectionModal({
             software: previewPhoto.exif?.software || '-'
           };
 
-          // 🎯 JAVÍTVA: Galériás fotó kiválasztása hitelesített tokennel és JSON fejléccel
           const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, {
             method: 'POST',
             headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
@@ -326,11 +324,15 @@ export default function AlbumSelectionModal({
     }
   };
 
+  // 🎯 JAVÍTVA: A bezáráskor és törléskor leállítjuk az összes töltési állapotot!
   const cleanAndClose = (wasActionSubmitted = false) => {
     if (previewPhoto?.isLocal && previewPhoto.file_url) {
       URL.revokeObjectURL(previewPhoto.file_url);
     }
     setPreviewPhoto(null);
+    setIsSubmitting(false);
+    setIsUploading(false);
+    setIsSwapping(false);
     onClose(wasActionSubmitted); 
   };
 
@@ -372,7 +374,6 @@ export default function AlbumSelectionModal({
         }}
       >
         
-        {/* Felső abszolút bezárás gomb */}
         <button 
           onClick={() => cleanAndClose(false)} 
           style={{ position: 'absolute', top: '16px', right: '16px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#f43f5e', width: '28px', height: '28px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.1s', zIndex: 110 }}
