@@ -104,10 +104,7 @@ export default function AdminUsersView({
         (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const hasLoggedIn = Boolean(
-        (u.last_login && u.last_login !== '' && new Date(u.last_login).getTime() > 0) ||
-        (u.last_login_at && u.last_login_at !== '' && new Date(u.last_login_at).getTime() > 0)
-      );
+      const hasLoggedIn = Boolean(u.last_login && u.last_login !== '' && new Date(u.last_login).getTime() > 0);
       const matchesLoggedInFilter = !onlyLoggedInUsers || hasLoggedIn;
 
       return matchesSearch && matchesLoggedInFilter;
@@ -238,7 +235,7 @@ export default function AdminUsersView({
     }
   };
 
-  const loggedInCount = localUsers.filter(u => Boolean(u.last_login || u.last_login_at)).length;
+  const loggedInCount = localUsers.filter(u => Boolean(u.last_login)).length;
   const totalPremiumCount = localUsers.filter(u => u.is_premium === 1).length;
   const payingStripePremiumCount = localUsers.filter(u => u.is_premium === 1 && Boolean(u.stripe_customer_id && String(u.stripe_customer_id).trim() !== '')).length;
 
@@ -471,10 +468,10 @@ export default function AdminUsersView({
                         🌱 Regisztrált: {formatDate(u.registered_at || u.created_at)}
                       </div>
 
-                      {/* 🎯 MEGLÉVŐ last_login_at MEZŐ HASZNÁLATA A WEBRE */}
+                      {/* 🎯 MEGLÉVŐ last_login MEZŐ HASZNÁLATA A WEBRE (vagy általánosra) ÉS A last_login_android AZ ANDROIDRA */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px dashed #334155', paddingTop: '6px' }}>
-                        <div style={{ fontSize: '0.75rem', color: u.last_login_at ? '#38bdf8' : '#64748b', fontWeight: '600' }}>
-                          🌐 Web: {formatDate(u.last_login_at || u.last_login)}
+                        <div style={{ fontSize: '0.75rem', color: u.last_login ? '#38bdf8' : '#64748b', fontWeight: '600' }}>
+                          🌐 Web: {formatDate(u.last_login)}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: u.last_login_android ? '#10b981' : '#64748b', fontWeight: '600' }}>
                           📱 Android: {formatDate(u.last_login_android)}
