@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
 interface AdminUsersViewProps {
@@ -37,7 +37,6 @@ export default function AdminUsersView({
   const [storageStats, setStorageStats] = useState<Record<string, { count: number, bytes: number }>>({});
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // E-mail küldő állapotok
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
@@ -98,7 +97,6 @@ export default function AdminUsersView({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // 🎯 INTELLIGENS KERESŐ, SZŰRŐ ÉS RENDEZŐ MOTOR
   const processedUsers = useMemo(() => {
     const filtered = localUsers.filter(u => {
       const matchesSearch = 
@@ -106,7 +104,10 @@ export default function AdminUsersView({
         (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const hasLoggedIn = Boolean(u.last_login && u.last_login !== '' && new Date(u.last_login).getTime() > 0);
+      const hasLoggedIn = Boolean(
+        (u.last_login && u.last_login !== '' && new Date(u.last_login).getTime() > 0) ||
+        (u.last_login_at && u.last_login_at !== '' && new Date(u.last_login_at).getTime() > 0)
+      );
       const matchesLoggedInFilter = !onlyLoggedInUsers || hasLoggedIn;
 
       return matchesSearch && matchesLoggedInFilter;
@@ -119,7 +120,6 @@ export default function AdminUsersView({
     });
   }, [localUsers, searchTerm, onlyLoggedInUsers]);
 
-  // Regisztrációs chart adatok
   const chartData = useMemo(() => {
     if (!localUsers || localUsers.length === 0) return [];
     
@@ -238,7 +238,7 @@ export default function AdminUsersView({
     }
   };
 
-  const loggedInCount = localUsers.filter(u => Boolean(u.last_login)).length;
+  const loggedInCount = localUsers.filter(u => Boolean(u.last_login || u.last_login_at)).length;
   const totalPremiumCount = localUsers.filter(u => u.is_premium === 1).length;
   const payingStripePremiumCount = localUsers.filter(u => u.is_premium === 1 && Boolean(u.stripe_customer_id && String(u.stripe_customer_id).trim() !== '')).length;
 
@@ -255,7 +255,6 @@ export default function AdminUsersView({
         </button>
       </div>
       
-      {/* Statisztika és Kereső sáv */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <div style={{ textAlign: 'center' }}>
@@ -295,7 +294,6 @@ export default function AdminUsersView({
         </div>
       </div>
 
-      {/* Regisztrációs Chart Panel */}
       {chartData.length > 0 && (
         <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '20px 24px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
           <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -345,7 +343,6 @@ export default function AdminUsersView({
         </div>
       )}
 
-      {/* Felhasználók táblázata */}
       <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' }}>
           <thead>
@@ -353,7 +350,7 @@ export default function AdminUsersView({
               <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Felhasználó</th>
               <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Klub és Szerepkör</th>
               <th style={{ padding: '15px', borderBottom: '1px solid #334155', textAlign: 'center' }}>Tárhely Foglalás</th>
-              <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Aktivitás & AI</th>
+              <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Aktivitás & Platformok</th>
               <th style={{ padding: '15px', borderBottom: '1px solid #334155', textAlign: 'right' }}>Művelet</th>
             </tr>
           </thead>
@@ -373,7 +370,6 @@ export default function AdminUsersView({
                 const hasChanges = currentClubValue !== originalClub || currentRoleValue !== originalRole;
                 
                 const isPremium = u.is_premium === 1;
-                // 🎯 Csatolt Stripe azonosító ellenőrzése
                 const hasStripeCustomer = Boolean(u.stripe_customer_id && String(u.stripe_customer_id).trim() !== '');
                 const hasExpiredPremium = u.is_premium === 0 && u.premium_until;
 
@@ -397,7 +393,6 @@ export default function AdminUsersView({
                           <div style={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '4px' }}>{u.name || 'Nincs név megadva'}</div>
                           <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{u.email}</div>
                           
-                          {/* 🎯 ELÁGAZÁS: Fizető vs. Ajándék Prémium megkülönböztetés */}
                           <div style={{ marginTop: '8px' }}>
                             {isPremium ? (
                               hasStripeCustomer ? (
@@ -467,16 +462,23 @@ export default function AdminUsersView({
                       )}
                     </td>
 
-                    {/* 4. Statisztikák & Regisztrációs idő */}
+                    {/* 4. Statisztikák, Regisztráció & PLATFORM BELÉPÉSEK */}
                     <td style={{ padding: '15px' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '4px' }} title="Elemzett képek száma">
+                      <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '4px' }}>
                         🤖 AI Elemzés: <span style={{ fontWeight: 'bold', color: u.ai_usage_count > 0 ? '#38bdf8' : '#64748b' }}>{u.ai_usage_count || 0} db</span>
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: '500', marginBottom: '2px' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: '500', marginBottom: '6px' }}>
                         🌱 Regisztrált: {formatDate(u.registered_at || u.created_at)}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: u.last_login ? '#10b981' : '#ef4444', fontWeight: '600' }}>
-                        Belépett: {formatDate(u.last_login)}
+
+                      {/* 🎯 MEGLÉVŐ last_login_at MEZŐ HASZNÁLATA A WEBRE */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px dashed #334155', paddingTop: '6px' }}>
+                        <div style={{ fontSize: '0.75rem', color: u.last_login_at ? '#38bdf8' : '#64748b', fontWeight: '600' }}>
+                          🌐 Web: {formatDate(u.last_login_at || u.last_login)}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: u.last_login_android ? '#10b981' : '#64748b', fontWeight: '600' }}>
+                          📱 Android: {formatDate(u.last_login_android)}
+                        </div>
                       </div>
                     </td>
 
@@ -511,7 +513,7 @@ export default function AdminUsersView({
       {/* 📧 E-MAIL KÜLDŐ MODAL */}
       {isEmailModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
-          <div style={{ background: '#1e293b', width: '100%', maxWidth: '1200px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.2s ease-out' }}>
+          <div style={{ background: '#1e293b', width: '100%', maxWidth: '1200px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
             
             <div style={{ background: '#0f172a', padding: '20px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>📧 Rendszer E-mail Küldése</h3>
