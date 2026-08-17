@@ -87,6 +87,25 @@ jobs:
             sed -i "/<\/resources>/i \    <string name=\"default_web_client_id\">$CLIENT_ID<\/string>" "$STRINGS_FILE"
           fi
 
+# 🎯 1. KIOVASSA A VERZIÓT A PACKAGE.JSON-BÓL ÉS BEÉGETI A GRADLE-BE
+      - name: Inject Dynamic Version into Gradle
+        run: |
+          # Verziószám kiolvasása a package.json-ból
+          PACKAGE_VERSION=$(node -p "require('./frontend/package.json').version")
+          BUILD_NUMBER=${{ github.run_number }}
+          
+          echo "=== 🚀 APK VERZIÓ BEÁLLÍTÁSA: $PACKAGE_VERSION (Build: $BUILD_NUMBER) ==="
+          
+          cat << EOF >> frontend/android/app/build.gradle
+
+          android {
+              defaultConfig {
+                  versionCode $BUILD_NUMBER
+                  versionName "$PACKAGE_VERSION"
+              }
+          }
+          EOF
+          
       - name: Build Android APK
         run: |
           cd frontend/android
