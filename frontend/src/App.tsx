@@ -49,6 +49,9 @@ import MafoszProgressView from './views/MafoszProgressView';
 import PackagesView from './components/PackagesView'; 
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
+// 🎯 DETEKTÁLÓ IMPORT AZ ANDROID / WEB MEGKÜLÖNBÖZTETÉSHEZ
+import { Capacitor } from '@capacitor/core';
+
 if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvasok.guru')) {
   window.location.replace(
     'https://photawesome.com' + window.location.pathname + window.location.search
@@ -407,10 +410,18 @@ function MainContent() {
           return;
         }
 
+        // 🎯 KÜLDJÜK A PLATFORMOT IS
+        const currentPlatform = Capacitor.getPlatform();
+
         const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
+          body: JSON.stringify({ 
+            email: decoded.email, 
+            name: decoded.name, 
+            sub: decoded.sub,
+            platform: currentPlatform 
+          })
         });
 
         if (res.status === 403) {
@@ -464,10 +475,18 @@ function MainContent() {
         const decoded: any = jwtDecode(storedToken);
         if (decoded.exp * 1000 < Date.now()) return;
 
+        // 🎯 KÜLDJÜK A PLATFORMOT IS
+        const currentPlatform = Capacitor.getPlatform();
+
         const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
+          body: JSON.stringify({ 
+            email: decoded.email, 
+            name: decoded.name, 
+            sub: decoded.sub,
+            platform: currentPlatform 
+          })
         });
 
         if (res.status === 403) {
@@ -542,9 +561,17 @@ function MainContent() {
     localStorage.setItem('photoAppToken', credential);
     const decoded: any = jwtDecode(credential);
     try {
+      // 🎯 KÜLDJÜK A PLATFORMOT IS
+      const currentPlatform = Capacitor.getPlatform();
+
       const res = await fetch(`${BACKEND_URL}/api/auth/sync`, { 
         method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub }) 
+        body: JSON.stringify({ 
+          email: decoded.email, 
+          name: decoded.name, 
+          sub: decoded.sub,
+          platform: currentPlatform
+        }) 
       });
       if (res.ok) {
         const data = await res.json();
