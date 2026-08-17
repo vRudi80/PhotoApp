@@ -260,10 +260,10 @@ export default function Header({
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [unreadForumCount, setUnreadForumCount] = useState<number>(0);
 
-  // 🎯 AUTOMATIKUS GITHUB RELEASE LEKÉRDEZÉS
+  // 🎯 GYORS ÁTIRÁNYÍTÓ LINK ÉS DINAMIKUS VERZIÓ ALAPÉRTEK
   const [apkInfo, setApkInfo] = useState<{ tag: string; url: string }>({
-    tag: 'v1.1',
-    url: 'https://github.com/vRudi80/PhotoApp/releases/download/v1.1/photawesome.apk'
+    tag: 'v1.2',
+    url: 'https://github.com/vRudi80/PhotoApp/releases/latest/download/photawesome.apk'
   });
 
   const isAdminUser = user?.email === ADMIN_EMAIL;
@@ -288,17 +288,16 @@ export default function Header({
     };
   };
 
-  // 🎯 LATEST RELEASE LEKÉRDEZÉSE A GITHUB API-RÓL
+  // 🎯 LATEST RELEASE VERZIÓSZÁM FRISSÍTÉSE A GITHUB API-RÓL
   useEffect(() => {
     fetch('https://api.github.com/repos/vRudi80/PhotoApp/releases/latest')
       .then(res => res.json())
       .then(data => {
         if (data && data.tag_name) {
-          const apkAsset = data.assets?.find((a: any) => a.name.endsWith('.apk'));
-          setApkInfo({
-            tag: data.tag_name,
-            url: apkAsset ? apkAsset.browser_download_url : data.html_url
-          });
+          setApkInfo(prev => ({
+            ...prev,
+            tag: data.tag_name
+          }));
         }
       })
       .catch(err => console.warn('GitHub release fetch error:', err));
@@ -374,7 +373,6 @@ export default function Header({
               </div>
             </div>
 
-            {/* 🎯 DINAMIKUS VERZIÓSZÁM MOBILON */}
             <a 
               href={apkInfo.url} 
               download="photawesome.apk" 
@@ -553,7 +551,6 @@ export default function Header({
         {/* ASZTALI JOBB OLDALI ELEMEK (TÉMA, NYELV, APK, PROFIL DROPDOWN) */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           
-          {/* 🎯 DINAMIKUS VERZIÓSZÁM ASZTALI NÉZETBEN */}
           <a 
             href={apkInfo.url} 
             download="photawesome.apk" 
