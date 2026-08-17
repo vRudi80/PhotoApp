@@ -592,7 +592,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
               >
                 
                 <div onClick={() => setSelectedEntryModal(entry)} style={{ position: 'relative', height: '210px', background: '#000', cursor: 'pointer', overflow: 'hidden' }}>
-                  <img src={photoUrl} alt={entry.title} referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <img src={photoUrl} alt={entry.title} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   
                   {isRoundClosed && index < 3 && (
                     <div style={{ 
@@ -716,31 +716,33 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* MODÁL KÉP RÉSZLETEK */}
+      {/* MODÁL KÉP RÉSZLETEK - MEGNÖVELT KÉPMÉRETTEL ÉS DUPLA BEZÁRÓ GOMBBAL */}
       {activeModalRankedEntry && (() => {
         const isMyModalPhoto = activeModalRankedEntry.user_email === user?.email;
         const canShowAi = isRoundClosed || isMyModalPhoto;
 
         return (
           <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px', boxSizing: 'border-box' }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '16px', maxWidth: '1000px', width: '100%', maxHeight: '92vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 25px 60px rgba(0,0,0,0.9)', position: 'relative', boxSizing: 'border-box' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '16px', maxWidth: '1050px', width: '100%', maxHeight: '94vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 25px 60px rgba(0,0,0,0.9)', position: 'relative', boxSizing: 'border-box' }}>
               
+              {/* FEJLÉC ÉS NAGY FELSŐ CSÚCS-BEZÁRÓ GOMB */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-main)', paddingBottom: '10px', flexShrink: 0 }}>
                 <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.1rem', fontWeight: 800, wordBreak: 'break-word', paddingRight: '10px' }}>{activeModalRankedEntry.title}</h3>
                 <button 
                   onClick={() => setSelectedEntryModal(null)} 
+                  aria-label="Bezárás"
                   style={{ 
-                    background: 'rgba(255, 255, 255, 0.1)', 
-                    border: 'none', 
-                    color: '#ffffff', 
+                    background: 'rgba(239, 68, 68, 0.2)', 
+                    border: '1px solid rgba(239, 68, 68, 0.4)', 
+                    color: '#f87171', 
                     cursor: 'pointer', 
                     borderRadius: '50%', 
-                    width: '32px', 
-                    height: '32px', 
+                    width: '38px', 
+                    height: '38px', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center', 
-                    fontSize: '1rem', 
+                    fontSize: '1.2rem', 
                     fontWeight: 'bold',
                     flexShrink: 0
                   }}
@@ -749,15 +751,15 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 </button>
               </div>
 
+              {/* MEGNÖVELT KÉP KONTÉNER (68vh A KORÁBBI 50vh HELYETT) */}
               <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#020617', borderRadius: '10px', padding: '8px', boxSizing: 'border-box', overflow: 'hidden', flexShrink: 0 }}>
                 <img 
                   src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} 
                   alt={activeModalRankedEntry.title} 
                   referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
                   style={{ 
                     maxWidth: '100%', 
-                    maxHeight: '50vh', 
+                    maxHeight: '68vh', 
                     width: 'auto',
                     height: 'auto',
                     objectFit: 'contain', 
@@ -833,6 +835,31 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 </div>
               )}
 
+              {/* MÁSODIK BEZÁRÓ GOMB A MODÁL ALJÁN (KÜLÖNÖSEN MOBILON VALÓ HOSSZÚ GÖRGETÉS UTÁN) */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-main)', flexShrink: 0 }}>
+                <button 
+                  onClick={() => setSelectedEntryModal(null)} 
+                  style={{ 
+                    width: '100%', 
+                    maxWidth: '320px', 
+                    padding: '10px 18px', 
+                    background: 'rgba(239, 68, 68, 0.15)', 
+                    border: '1px solid rgba(239, 68, 68, 0.4)', 
+                    color: '#f87171', 
+                    borderRadius: '8px', 
+                    fontWeight: 'bold', 
+                    fontSize: '0.9rem', 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '6px' 
+                  }}
+                >
+                  ✕ Ablak Bezárása
+                </button>
+              </div>
+
             </div>
           </div>
         );
@@ -905,7 +932,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
             {uploadPreview && (
               <div style={{ textAlign: 'center', background: '#000', borderRadius: '8px', padding: '8px' }}>
-                <img src={uploadPreview} alt="Előnézet" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ maxHeight: '160px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px' }} />
+                <img src={uploadPreview} alt="Előnézet" referrerPolicy="no-referrer" style={{ maxHeight: '160px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px' }} />
               </div>
             )}
 
