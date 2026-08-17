@@ -352,7 +352,7 @@ export default function Header({
             </div>
 
             <a 
-              href="/photawesome.apk" 
+              href="https://github.com/vRudi80/PhotoApp/releases/download/v1.1/photawesome.apk" 
               download="photawesome.apk" 
               style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.4)', padding: '6px 12px', borderRadius: '8px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
