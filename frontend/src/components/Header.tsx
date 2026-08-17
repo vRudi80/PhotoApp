@@ -260,7 +260,6 @@ export default function Header({
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [unreadForumCount, setUnreadForumCount] = useState<number>(0);
 
-  // 🎯 GYORS ÁTIRÁNYÍTÓ LINK ÉS DINAMIKUS VERZIÓ ALAPÉRTEK
   const [apkInfo, setApkInfo] = useState<{ tag: string; url: string }>({
     tag: 'v1.2',
     url: 'https://github.com/vRudi80/PhotoApp/releases/latest/download/photawesome.apk'
@@ -288,7 +287,6 @@ export default function Header({
     };
   };
 
-  // 🎯 LATEST RELEASE VERZIÓSZÁM FRISSÍTÉSE A GITHUB API-RÓL
   useEffect(() => {
     fetch('https://api.github.com/repos/vRudi80/PhotoApp/releases/latest')
       .then(res => res.json())
@@ -334,7 +332,9 @@ export default function Header({
     setIsMobileMenuOpen(false); 
   };
 
-  const avatarUrl = user?.avatar_url || user?.picture || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
+  // 🎯 GOLYÓÁLLÓ PROFILKÉP GENERÁLÓ + SILHOUETTE FALLBACK
+  const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
+  const avatarUrl = user?.avatar_url || user?.picture || silhouetteAvatar;
 
   return (
     <header ref={headerRef} className="app-header" style={{ position: 'relative', zIndex: 1000, width: '100%', background: 'var(--bg-card, #131b2e)', borderBottom: '1px solid var(--border-main, #222f47)', boxSizing: 'border-box' }}>
@@ -354,7 +354,13 @@ export default function Header({
         <div style={{ display: isMobileMenuOpen ? 'flex' : 'none', flexDirection: 'column', gap: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border-main, #222f47)' }}>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-main, #0f172a)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-main, #222f47)' }}>
-            <img src={avatarUrl} alt="" style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #10b981' }} />
+            <img 
+              src={avatarUrl} 
+              alt="" 
+              referrerPolicy="no-referrer"
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
+              style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #10b981', flexShrink: 0, backgroundColor: '#090d16' }} 
+            />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 'bold', color: 'var(--text-title, #f8fafc)', fontSize: '0.95rem', wordBreak: 'break-word' }}>{user?.name || user?.user_name || 'Fotós'}</div>
               <div style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '600' }}>{user?.club_name || (lang === 'en' ? 'Active Member' : 'Aktív tag')}</div>
@@ -572,7 +578,13 @@ export default function Header({
           {/* ASZTALI PROFIL MENÜDROPDOWN */}
           <div className="nav-item-container desktop-user-dropdown" style={{ position: 'relative' }}>
             <button className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} style={{ color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}>
-              <img src={avatarUrl} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #10b981' }} />
+              <img 
+                src={avatarUrl} 
+                alt="" 
+                referrerPolicy="no-referrer"
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
+                style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #10b981', flexShrink: 0, backgroundColor: '#090d16' }} 
+              />
               <span>{user?.name || user?.user_name || 'Fotós'}</span>
               <ChevronDown size={12} style={{ opacity: 0.6 }} />
             </button>
