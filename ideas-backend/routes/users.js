@@ -48,41 +48,53 @@ module.exports = function(app, pool) {
     }
   });
 
-  // ====================================================================
-  // 🔐 PRÉMIUM AJÁNDÉKKAL ELLÁTOTT AUTH SZINKRONIZÁCIÓS VÉGPONT (Nyitott)
-  // ====================================================================
-  app.post('/api/auth/sync', async (req, res) => {
-    const { email, name, sub } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email megadása kötelező.' });
-    
-    try {
-      // 🎯 JAVÍTVA: Beillesztettük a registered_at oszlopot és a NOW() értéket.
-      // Új felhasználónál a registered_at és a last_login is NOW() lesz.
-      // Visszatérő felhasználónál csak az UPDATE ág fut le, így a registered_at érintetlen marad!
+ app.post('/api/auth/sync', async (req, res) => {
+  const { email, name, sub, platform } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email megadása kötelező.' });
+
+  try {
+    const isAndroid = platform === 'android';
+
+    // 🎯 1. BEJEGYZÉS / FRISSÍTÉS PLATFORM SZERINT
+    // Megőrizzük az új regisztráltak 7 napos ajándék prémiumját és a registered_at mezőt!
+    if (isAndroid) {
       await pool.query(
-        `INSERT INTO photo_users (google_id, email, name, last_login, registered_at, is_premium, premium_level, premium_until) 
-         VALUES (?, ?, ?, NOW(), NOW(), 1, 1, DATE_ADD(NOW(), INTERVAL 7 DAY)) 
-         ON DUPLICATE KEY UPDATE last_login = NOW()`, 
+        `INSERT INTO photo_users (google_id, email, name, last_login, last_login_android, registered_at, is_premium, premium_level, premium_until) 
+         VALUES (?, ?, ?, NOW(), NOW(), NOW(), 1, 1, DATE_ADD(NOW(), INTERVAL 7 DAY)) 
+         ON DUPLICATE KEY UPDATE 
+           last_login = NOW(),
+           last_login_android = NOW()`, 
         [sub, email, name]
       );
-      
-      const [rows] = await pool.query('SELECT is_premium, premium_until, premium_level FROM photo_users WHERE email = ?', [email]);
-      const userDb = rows[0];
-      const now = new Date();
-      const premiumUntil = userDb.premium_until ? new Date(userDb.premium_until) : null;
-      const isPremiumActive = (userDb.is_premium === 1 && premiumUntil && premiumUntil > now);
-  
-      res.json({ 
-        success: true, 
-        isPremium: isPremiumActive, 
-        premiumLevel: userDb.premium_level, 
-        premiumUntil: userDb.premium_until 
-      });
-    } catch (err) { 
-      console.error("🔥 Hiba az auth szinkronizációnál:", err.message);
-      res.status(500).json({ error: 'Adatbázis hiba az auth szinkronizációnál' }); 
+    } else {
+      await pool.query(
+        `INSERT INTO photo_users (google_id, email, name, last_login, last_login_at, registered_at, is_premium, premium_level, premium_until) 
+         VALUES (?, ?, ?, NOW(), NOW(), NOW(), 1, 1, DATE_ADD(NOW(), INTERVAL 7 DAY)) 
+         ON DUPLICATE KEY UPDATE 
+           last_login = NOW(),
+           last_login_at = NOW()`, 
+        [sub, email, name]
+      );
     }
-  });
+
+    // 🎯 2. PRÉMIUM STÁTUSZ LEKÉRDEZÉSE ÉS KISZÁMÍTÁSA (Pontosan az eredeti kódod szerint)
+    const [rows] = await pool.query('SELECT is_premium, premium_until, premium_level FROM photo_users WHERE email = ?', [email]);
+    const userDb = rows[0];
+    const now = new Date();
+    const premiumUntil = userDb.premium_until ? new Date(userDb.premium_until) : null;
+    const isPremiumActive = (userDb.is_premium === 1 && premiumUntil && premiumUntil > now);
+
+    res.json({ 
+      success: true, 
+      isPremium: isPremiumActive, 
+      premiumLevel: userDb.premium_level, 
+      premiumUntil: userDb.premium_until 
+    });
+  } catch (err) { 
+    console.error("🔥 Hiba az auth szinkronizációnál:", err.message);
+    res.status(500).json({ error: 'Adatbázis hiba az auth szinkronizációnál' }); 
+  }
+});
 
   
  // ====================================================================
