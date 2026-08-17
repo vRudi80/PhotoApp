@@ -48,15 +48,13 @@ module.exports = function(app, pool) {
     }
   });
 
- app.post('/api/auth/sync', async (req, res) => {
+app.post('/api/auth/sync', async (req, res) => {
   const { email, name, sub, platform } = req.body;
   if (!email) return res.status(400).json({ error: 'Email megadása kötelező.' });
 
   try {
     const isAndroid = platform === 'android';
 
-    // 🎯 1. BEJEGYZÉS / FRISSÍTÉS PLATFORM SZERINT
-    // Megőrizzük az új regisztráltak 7 napos ajándék prémiumját és a registered_at mezőt!
     if (isAndroid) {
       await pool.query(
         `INSERT INTO photo_users (google_id, email, name, last_login, last_login_android, registered_at, is_premium, premium_level, premium_until) 
@@ -68,16 +66,14 @@ module.exports = function(app, pool) {
       );
     } else {
       await pool.query(
-        `INSERT INTO photo_users (google_id, email, name, last_login, last_login_at, registered_at, is_premium, premium_level, premium_until) 
-         VALUES (?, ?, ?, NOW(), NOW(), NOW(), 1, 1, DATE_ADD(NOW(), INTERVAL 7 DAY)) 
+        `INSERT INTO photo_users (google_id, email, name, last_login, registered_at, is_premium, premium_level, premium_until) 
+         VALUES (?, ?, ?, NOW(), NOW(), 1, 1, DATE_ADD(NOW(), INTERVAL 7 DAY)) 
          ON DUPLICATE KEY UPDATE 
-           last_login = NOW(),
-           last_login_at = NOW()`, 
+           last_login = NOW()`, 
         [sub, email, name]
       );
     }
 
-    // 🎯 2. PRÉMIUM STÁTUSZ LEKÉRDEZÉSE ÉS KISZÁMÍTÁSA (Pontosan az eredeti kódod szerint)
     const [rows] = await pool.query('SELECT is_premium, premium_until, premium_level FROM photo_users WHERE email = ?', [email]);
     const userDb = rows[0];
     const now = new Date();
