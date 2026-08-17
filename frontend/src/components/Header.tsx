@@ -35,8 +35,7 @@ import {
   BookOpen,
   Box,
   Gamepad2,
-  Smartphone,
-  Download
+  Smartphone
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -89,10 +88,16 @@ const HEADER_STYLES = `
       min-width: 200px;
       box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     }
+    .desktop-user-dropdown {
+      display: block !important;
+    }
   }
   
   @media (max-width: 1059px) {
     .header-desktop-brand-wrapper {
+      display: none !important;
+    }
+    .desktop-user-dropdown {
       display: none !important;
     }
     .mobile-header-top {
@@ -334,7 +339,6 @@ export default function Header({
             </div>
           </div>
 
-          {/* BEÁLLÍTÁSOK TOOLBAR MOBILON (TÉMA + NYELV + APK LETÖLTÉS) */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <button onClick={toggleTheme} style={{ background: 'var(--bg-main, #0f172a)', border: '1px solid var(--border-main, #222f47)', color: 'var(--text-body, #94a3b8)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>
@@ -406,7 +410,7 @@ export default function Header({
             </button>
           </div>
 
-          {/* PÁLYÁZATOK (LENYÍLÓ) */}
+          {/* PÁLYÁZATOK */}
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
@@ -430,7 +434,7 @@ export default function Header({
             )}
           </div>
           
-          {/* KLUB (LENYÍLÓ) */}
+          {/* KLUB */}
           <div className="nav-item-container">
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') || activeTab === 'public_news' ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
               <Users size={14} /> <span>{t('navClub')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
@@ -476,7 +480,7 @@ export default function Header({
             </button>
           </div>
           
-          {/* 🎯 VEZETŐ SÁV (KORÁBBAN ADMIN) */}
+          {/* VEZETŐ SÁV */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container">
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -510,7 +514,7 @@ export default function Header({
             </div>
           )}
 
-          {/* MOBIL SAJÁT MENÜI (GÖRGETHETŐ NÉZETBEN LÁTHATÓ DIRECT MENÜPONTOK) */}
+          {/* MOBIL SAJÁT MENÜI */}
           <div style={{ display: isMobileMenuOpen ? 'flex' : 'none', flexDirection: 'column', gap: '4px', paddingTop: '10px', borderTop: '1px dashed var(--border-main, #222f47)' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold', padding: '0 4px 4px 4px', textTransform: 'uppercase' }}>Fiókom & Beállítások</div>
             <button className="drop-item" style={{ color: '#10b981' }} onClick={() => handleNavClick('profile')}><User size={14} /> {t('subProfile')}</button>
@@ -522,7 +526,7 @@ export default function Header({
 
         </div> 
 
-        {/* ASZTALI JOBB OLDALI ELEMEK (TÉMA, NYELV, APK, FIÓK) */}
+        {/* ASZTALI JOBB OLDALI ELEMEK (TÉMA, NYELV, APK, PROFIL DROPDOWN) */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           
           <a 
@@ -531,7 +535,7 @@ export default function Header({
             title="PhotAwesome Android Alkalmazás Letöltése (APK)"
             style={{ background: 'var(--bg-main, #0f172a)', border: '1px solid var(--border-main, #222f47)', color: '#10b981', padding: '6px 10px', borderRadius: '8px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <Smartphone size={14} /> <span style={{ display: 'none' }} className="desktop-apk-text">APK</span>
+            <Smartphone size={14} /> <span>APK</span>
           </a>
 
           <button onClick={toggleTheme} style={{ background: 'transparent', border: '1px solid var(--border-main, #222f47)', color: 'var(--text-body, #94a3b8)', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', height: '32px' }}>
@@ -543,21 +547,22 @@ export default function Header({
             <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? 'rgba(255,255,255,0.08)' : 'transparent', color: lang === 'en' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>EN</button>
           </div>
           
-          <div className="nav-item-container" style={{ display: 'none' }} className-desktop-user="true">
-            <button className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} style={{ color: '#10b981', fontWeight: 'bold' }} onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}>
-              <img src={avatarUrl} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+          {/* ASZTALI PROFIL MENÜDROPDOWN (HELYREÁLLÍTVA) */}
+          <div className="nav-item-container desktop-user-dropdown" style={{ position: 'relative' }}>
+            <button className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} style={{ color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}>
+              <img src={avatarUrl} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #10b981' }} />
               <span>{user?.name || user?.user_name || 'Fotós'}</span>
               <ChevronDown size={12} style={{ opacity: 0.6 }} />
             </button>
 
             {dropdownOpen === 'user_account' && (
               <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '210px' }}>
-                <button className="drop-item" style={{ color: '#10b981' }} onClick={() => handleNavClick('profile')}><User size={12} /> {t('subProfile')}</button>
-                <button className="drop-item" style={{ color: '#f59e0b' }} onClick={() => handleNavClick('my_album')}><ImageIcon size={12} /> {t('subPortfolio')}</button>
-                <button className="drop-item" style={{ color: '#8b5cf6' }} onClick={() => handleNavClick('packages')}><Award size={12} /> {t('subPackages')}</button>
-                <button className="drop-item" style={{ color: '#f43f5e' }} onClick={() => handleNavClick('tickets')}><LifeBuoy size={12} /> {t('subSupport')} {unreadTicketsCount > 0 && `(${unreadTicketsCount})`}</button>
+                <button className="drop-item" style={{ color: '#10b981' }} onClick={() => handleNavClick('profile')}><User size={14} /> {t('subProfile')}</button>
+                <button className="drop-item" style={{ color: '#f59e0b' }} onClick={() => handleNavClick('my_album')}><ImageIcon size={14} /> {t('subPortfolio')}</button>
+                <button className="drop-item" style={{ color: '#8b5cf6' }} onClick={() => handleNavClick('packages')}><Award size={14} /> {t('subPackages')}</button>
+                <button className="drop-item" style={{ color: '#f43f5e' }} onClick={() => handleNavClick('tickets')}><LifeBuoy size={14} /> {t('subSupport')} {unreadTicketsCount > 0 && `(${unreadTicketsCount})`}</button>
                 <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
-                <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => { googleLogout(); onLogout(); }}><LogOut size={12} /> {t('subLogout')}</button>
+                <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => { googleLogout(); onLogout(); }}><LogOut size={14} /> {t('subLogout')}</button>
               </div>
             )}
           </div>
