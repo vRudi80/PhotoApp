@@ -259,10 +259,15 @@ export default function Header({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [unreadForumCount, setUnreadForumCount] = useState<number>(0);
+
+  // 🎯 AUTOMATIKUS GITHUB RELEASE LEKÉRDEZÉS
+  const [apkInfo, setApkInfo] = useState<{ tag: string; url: string }>({
+    tag: 'v1.1',
+    url: 'https://github.com/vRudi80/PhotoApp/releases/download/v1.1/photawesome.apk'
+  });
+
   const isAdminUser = user?.email === ADMIN_EMAIL;
   const headerRef = useRef<HTMLDivElement>(null);
-
-  const APK_DOWNLOAD_URL = "https://github.com/vRudi80/PhotoApp/releases/download/v1.1/photawesome.apk";
 
   let theme = 'dark';
   let toggleTheme = () => {};
@@ -282,6 +287,22 @@ export default function Header({
       ...extraHeaders
     };
   };
+
+  // 🎯 LATEST RELEASE LEKÉRDEZÉSE A GITHUB API-RÓL
+  useEffect(() => {
+    fetch('https://api.github.com/repos/vRudi80/PhotoApp/releases/latest')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.tag_name) {
+          const apkAsset = data.assets?.find((a: any) => a.name.endsWith('.apk'));
+          setApkInfo({
+            tag: data.tag_name,
+            url: apkAsset ? apkAsset.browser_download_url : data.html_url
+          });
+        }
+      })
+      .catch(err => console.warn('GitHub release fetch error:', err));
+  }, []);
 
   useEffect(() => {
     const fetchUnreadForumTotal = async () => {
@@ -353,12 +374,13 @@ export default function Header({
               </div>
             </div>
 
+            {/* 🎯 DINAMIKUS VERZIÓSZÁM MOBILON */}
             <a 
-              href={APK_DOWNLOAD_URL} 
+              href={apkInfo.url} 
               download="photawesome.apk" 
               style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.4)', padding: '6px 12px', borderRadius: '8px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <Smartphone size={14} /> Android App
+              <Smartphone size={14} /> Android App ({apkInfo.tag})
             </a>
           </div>
 
@@ -531,13 +553,14 @@ export default function Header({
         {/* ASZTALI JOBB OLDALI ELEMEK (TÉMA, NYELV, APK, PROFIL DROPDOWN) */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           
+          {/* 🎯 DINAMIKUS VERZIÓSZÁM ASZTALI NÉZETBEN */}
           <a 
-            href={APK_DOWNLOAD_URL} 
+            href={apkInfo.url} 
             download="photawesome.apk" 
-            title="PhotAwesome Android Alkalmazás Letöltése (APK)"
+            title={`PhotAwesome Android App (${apkInfo.tag})`}
             style={{ background: 'var(--bg-main, #0f172a)', border: '1px solid var(--border-main, #222f47)', color: '#10b981', padding: '6px 10px', borderRadius: '8px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <Smartphone size={14} /> <span>APK</span>
+            <Smartphone size={14} /> <span>APK ({apkInfo.tag})</span>
           </a>
 
           <button onClick={toggleTheme} style={{ background: 'transparent', border: '1px solid var(--border-main, #222f47)', color: 'var(--text-body, #94a3b8)', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', height: '32px' }}>
