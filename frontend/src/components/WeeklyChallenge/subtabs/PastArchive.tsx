@@ -212,7 +212,6 @@ export default function PastArchive({
     return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4); 
   }, [singlePhotosRankedList]);
 
-  // 🎯 BIZTONSÁGOS KÖZVETLEN FIÁJL-LETÖLTÉS FALLBACK
   const triggerDirectFileDownload = (blob: Blob, fileName: string) => {
     const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement('a'); 
@@ -283,7 +282,6 @@ export default function PastArchive({
           const fileName = `Arena_Results_${(currentTopicObj?.title || 'Challenge').replace(/\s+/g, '_')}_2026.png`;
           const file = new File([blob], fileName, { type: 'image/png' });
 
-          // 🎯 MEGOSZTÁS PRÓBÁLÁSA CATCH BLOKKAL - HA ELUTASÍTJA A BÖNGÉSZŐ, ISMÉTELTEN LETÖLTI!
           let shareSuccess = false;
           if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
@@ -373,11 +371,11 @@ export default function PastArchive({
   };
 
   return (
-    <div style={{ width: '100%', boxSizing: 'border-box' }}>
+    <div style={{ width: '100%', maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
       
       {/* ── ARCHÍVUM KÁRTYA RÁCS ── */}
       {!selectedPastTopicId ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
           {Array.isArray(pastTopics) && pastTopics.map(topicRow => {
             const isDaily = getTopicType(topicRow.start_date, topicRow.end_date) === 'daily';
             const endedDate = new Date(topicRow.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -389,24 +387,25 @@ export default function PastArchive({
               <div 
                 key={topicRow.id}
                 onClick={() => handleSelectTopic(topicRow.id)}
-                style={{ background: 'var(--bg-card)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'all 0.2s ease-in-out' }}
+                style={{ background: 'var(--bg-card)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'all 0.2s ease-in-out', boxSizing: 'border-box', width: '100%' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'var(--text-body)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border-main)'; }}
               >
-                <div style={{ padding: '12px 16px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                <div style={{ padding: '10px 14px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, wordBreak: 'break-word' }}>
                     {lang === 'en' && topicRow.title_en ? topicRow.title_en : topicRow.title}
                   </h4>
-                  <span style={{ flexShrink: 0, fontSize: '0.68rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', background: isDaily ? 'rgba(239,68,68,0.08)' : 'rgba(139,92,246,0.08)', color: isDaily ? '#f87171' : '#a78bfa', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(139,92,246,0.2)'}` }}>
+                  <span style={{ flexShrink: 0, fontSize: '0.65rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px', background: isDaily ? 'rgba(239,68,68,0.08)' : 'rgba(139,92,246,0.08)', color: isDaily ? '#f87171' : '#a78bfa', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(139,92,246,0.2)'}` }}>
                     {isDaily ? 'BLITZ' : 'MASTER'}
                   </span>
                 </div>
 
-                <div style={{ height: '160px', backgroundColor: '#090d16', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ height: '140px', backgroundColor: '#090d16', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {/* 🎯 referrerPolicy="no-referrer" az Androidos betöltéshez */}
                   <img src={topicRow.cover_url || `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/></svg>`} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleLocalImageError} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: 'var(--bg-main)', borderTop: '1px solid var(--border-main)', textAlign: 'center', fontSize: '0.75rem', padding: '10px 4px', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: 'var(--bg-main)', borderTop: '1px solid var(--border-main)', textAlign: 'center', fontSize: '0.72rem', padding: '8px 4px', color: 'var(--text-muted)' }}>
                   <div style={{ borderRight: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                     <Users size={12} color="var(--text-muted)" />
                     <span style={{ color: 'var(--text-title)', fontWeight: '600' }}>{realEntriesCount > 0 ? `${realEntriesCount} db` : '- db'}</span> 
@@ -430,65 +429,66 @@ export default function PastArchive({
       ) : (
         
         /* ── DETALIZÁLT AL-ARÉNA PANEL ── */
-        <div style={{ display: 'flex', background: 'transparent', flexDirection: 'column', gap: '20px', width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <button onClick={() => setSelectedPastTopicId(null)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
+        <div style={{ display: 'flex', background: 'transparent', flexDirection: 'column', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <button onClick={() => setSelectedPastTopicId(null)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
               <ArrowLeft size={14} /> {t('archiveBtnBack', 'Vissza')}
             </button>
             
-            <h2 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px' }}>
+            <h2 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.3px', wordBreak: 'break-word' }}>
               {lang === 'en' && currentTopicObj?.title_en ? currentTopicObj.title_en : currentTopicObj?.title}
             </h2>
           </div>
 
-          <div style={{ display: 'flex', background: 'var(--bg-main)', padding: '4px', borderRadius: '6px', width: 'fit-content', gap: '4px', border: '1px solid var(--border-main)' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-main)', padding: '4px', borderRadius: '6px', width: '100%', gap: '4px', border: '1px solid var(--border-main)', flexWrap: 'wrap', boxSizing: 'border-box' }}>
             {[
               { id: 'winners', label: t('archiveTabWinners', 'GYŐZTESEK') },
               { id: 'details', label: t('archiveTabDetails', 'RÉSZLETEK') },
               { id: 'prizes', label: t('archiveTabPrizes', 'NYEREMÉNYEK') },
               { id: 'rank', label: t('archiveTabRank', 'RANGSOR') }
             ].map(btn => (
-              <button key={btn.id} onClick={() => setSubTab(btn.id as any)} style={{ padding: '6px 16px', border: 'none', background: subTab === btn.id ? 'var(--hover-overlay)' : 'transparent', color: subTab === btn.id ? 'var(--text-title)' : 'var(--text-body)', borderRadius: '4px', fontWeight: '600', fontSize: '0.82rem', cursor: 'pointer', transition: 'all 0.1s' }}>
+              <button key={btn.id} onClick={() => setSubTab(btn.id as any)} style={{ flex: '1 1 120px', padding: '6px 10px', border: 'none', background: subTab === btn.id ? 'var(--hover-overlay)' : 'transparent', color: subTab === btn.id ? 'var(--text-title)' : 'var(--text-body)', borderRadius: '4px', fontWeight: '600', fontSize: '0.78rem', cursor: 'pointer', transition: 'all 0.1s', textAlign: 'center' }}>
                 {btn.label}
               </button>
             ))}
           </div>
 
-          <div style={{ background: 'var(--bg-card)', borderRadius: '8px', padding: '24px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '8px', padding: '16px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', boxSizing: 'border-box', width: '100%' }}>
             
             {/* 🥇 GYŐZTESEK FÜL */}
             {subTab === 'winners' && ( 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                <div style={{ border: '1px solid var(--border-main)', background: 'var(--bg-main)', borderRadius: '8px', padding: '20px', width: '100%', maxWidth: '600px', boxSizing: 'border-box' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#fbbf24', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '100%' }}>
+                <div style={{ border: '1px solid var(--border-main)', background: 'var(--bg-main)', borderRadius: '8px', padding: '16px', width: '100%', maxWidth: '600px', boxSizing: 'border-box' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#fbbf24', fontSize: '0.78rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '12px' }}>
                     <Crown size={14} /> <span>{t('archiveWinnerTitleCard', 'TOP PHOTOGRAPHER WINNER')}</span>
                   </div>
                   
                   {topThreeWinners[0] ? (
-                    <div style={{ width: '100%' }}>
-                      <div style={{ width: '100%', height: '300px', background: '#090d16', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', cursor: 'zoom-in', border: '1px solid var(--border-main)' }} onClick={() => setActiveArchiveEntry(topThreeWinners[0])}>
+                    <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                      <div style={{ width: '100%', height: '240px', background: '#090d16', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px', cursor: 'zoom-in', border: '1px solid var(--border-main)' }} onClick={() => setActiveArchiveEntry(topThreeWinners[0])}>
+                        {/* 🎯 referrerPolicy="no-referrer" az Androidos betöltéshez */}
                         <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" referrerPolicy="no-referrer" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleLocalImageError} />
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-main)', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', textAlign: 'left', minWidth: 0, flex: 1 }}>
                           <img 
                             src={getProfileAvatar(topThreeWinners[0])} 
                             alt="" 
                             referrerPolicy="no-referrer"
-                            style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
+                            style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16', flexShrink: 0 }} 
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
                           />
-                          <div>
-                            <strong style={{ color: 'var(--text-title)', display: 'block', fontSize: '0.98rem' }}>{topThreeWinners[0].user_name}</strong>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', display: 'block', marginTop: '1px' }}>{winnerLevelName}</span>
+                          <div style={{ minWidth: 0 }}>
+                            <strong style={{ color: 'var(--text-title)', display: 'block', fontSize: '0.9rem', wordBreak: 'break-word' }}>{topThreeWinners[0].user_name}</strong>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', marginTop: '1px', wordBreak: 'break-word' }}>{winnerLevelName}</span>
                           </div>
                         </div>
-                        <div style={{ color: '#fbbf24', fontWeight: '700', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ color: '#fbbf24', fontWeight: '700', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                           <Star size={14} fill="#fbbf24" /> {topThreeWinners[0].fair_score !== undefined ? `${topThreeWinners[0].fair_score} FP` : `${topThreeWinners[0].likes_count} ⭐`}
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px' }}>
                         <button
                           onClick={() => setActiveShareData({
                             rank: 1,
@@ -499,7 +499,7 @@ export default function PastArchive({
                             user_name: topThreeWinners[0].user_name,
                             file_url: getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)
                           })}
-                          style={{ width: '100%', background: '#fbbf24', color: '#090d16', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s' }}
+                          style={{ width: '100%', background: '#fbbf24', color: '#090d16', border: 'none', padding: '10px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s' }}
                         >
                           <Share2 size={14} /> {t('btnShareResult', 'Trófeakártya Mentése')}
                         </button>
@@ -508,7 +508,7 @@ export default function PastArchive({
                           <button
                             onClick={handleGenerateAdminPoster}
                             disabled={isAdminGeneratingPoster}
-                            style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.9rem', cursor: isAdminGeneratingPoster ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
+                            style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem', cursor: isAdminGeneratingPoster ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
                           >
                             <Download size={14} /> {isAdminGeneratingPoster ? 'Plakát generálása... ⏳' : 'Hivatalos Eredmény Plakát Letöltése (Admin)'}
                           </button>
@@ -525,28 +525,28 @@ export default function PastArchive({
 
             {/* 📝 RÉSZLETEK FÜL */}
             {subTab === 'details' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', alignItems: 'start' }}>
-                <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '6px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid var(--border-main)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', alignItems: 'start', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ background: 'var(--bg-main)', padding: '14px', borderRadius: '6px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid var(--border-main)' }}>
                   <img 
                     src={currentTopicObj?.master_avatar_url || silhouetteAvatar} 
                     alt="Master" 
                     referrerPolicy="no-referrer"
-                    style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
+                    style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
                   />
-                  <strong style={{ color: '#a78bfa', fontSize: '0.85rem', marginTop: '10px', fontWeight: 'bold', letterSpacing: '0.5px' }}>KÉPMESTER</strong>
-                  <span style={{ color: 'var(--text-title)', fontSize: '0.88rem', fontWeight: '600', marginTop: '2px' }}>{currentTopicObj?.master_name || t('archiveUnknownMaster', 'Ismeretlen Képmester')}</span>
+                  <strong style={{ color: '#a78bfa', fontSize: '0.78rem', marginTop: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>KÉPMESTER</strong>
+                  <span style={{ color: 'var(--text-title)', fontSize: '0.82rem', fontWeight: '600', marginTop: '2px', wordBreak: 'break-word' }}>{currentTopicObj?.master_name || t('archiveUnknownMaster', 'Ismeretlen Képmester')}</span>
                 </div>
-                <div style={{ borderLeft: '1px solid var(--border-main)', paddingLeft: '20px' }} className="archive-details-pane">
-                  <h3 style={{ color: 'var(--text-title)', fontSize: '1.4rem', margin: '0 0 8px 0', fontWeight: '700', letterSpacing: '-0.3px' }}>
+                <div style={{ borderLeft: '1px solid var(--border-main)', paddingLeft: '16px', minWidth: 0 }} className="archive-details-pane">
+                  <h3 style={{ color: 'var(--text-title)', fontSize: '1.2rem', margin: '0 0 6px 0', fontWeight: '700', letterSpacing: '-0.3px', wordBreak: 'break-word' }}>
                     {lang === 'en' && currentTopicObj?.title_en ? currentTopicObj.title_en : currentTopicObj?.title}
                   </h3>
-                  <p style={{ color: 'var(--text-body)', fontSize: '0.88rem', lineHeight: '1.5', marginBottom: '20px', whiteSpace: 'pre-wrap' }}>
+                  <p style={{ color: 'var(--text-body)', fontSize: '0.82rem', lineHeight: '1.45', marginBottom: '16px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                     {lang === 'en' && currentTopicObj?.description_en ? currentTopicObj.description_en : currentTopicObj?.description}
                   </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', borderTop: '1px solid var(--border-main)', paddingTop: '16px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}><ImageIcon size={14} color="var(--text-muted)" /><strong style={{ color: 'var(--text-title)', fontSize: '1rem', marginTop: '2px' }}>{pastLeaderboard.length}</strong> <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold' }}>{t('archiveMetaSubmitted')}</small></div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}><Calendar size={14} color="var(--text-muted)" /><strong style={{ color: 'var(--text-title)', fontSize: '1rem', marginTop: '2px' }}>{currentTopicObj?.end_date ? new Date(currentTopicObj.end_date).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }) : '-'}</strong> <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold' }}>{t('archiveMetaEnded')}</small></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', borderTop: '1px solid var(--border-main)', paddingTop: '14px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}><ImageIcon size={14} color="var(--text-muted)" /><strong style={{ color: 'var(--text-title)', fontSize: '0.9rem', marginTop: '2px' }}>{pastLeaderboard.length}</strong> <small style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: 'bold' }}>{t('archiveMetaSubmitted')}</small></div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}><Calendar size={14} color="var(--text-muted)" /><strong style={{ color: 'var(--text-title)', fontSize: '0.9rem', marginTop: '2px' }}>{currentTopicObj?.end_date ? new Date(currentTopicObj.end_date).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }) : '-'}</strong> <small style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: 'bold' }}>{t('archiveMetaEnded')}</small></div>
                   </div>
                 </div>
               </div>
@@ -554,36 +554,36 @@ export default function PastArchive({
 
             {/* 💎 NYEREMÉNYEK FÜL */}
             {subTab === 'prizes' && (
-              <div style={{ textAlign: 'left', maxWidth: '700px', margin: '0 auto' }}>
-                <h4 style={{ color: '#fbbf24', fontSize: '1.15rem', fontWeight: '600', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ textAlign: 'left', maxWidth: '700px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+                <h4 style={{ color: '#fbbf24', fontSize: '1rem', fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Gift size={16} /> {t('archivePrizesTitle', 'Dobogós Jutalmak & Extra Cserék')}
                 </h4>
-                <p style={{ color: 'var(--text-body)', lineHeight: '1.5', marginBottom: '16px', fontSize: '0.88rem' }}>
+                <p style={{ color: 'var(--text-body)', lineHeight: '1.4', marginBottom: '14px', fontSize: '0.82rem', wordBreak: 'break-word' }}>
                   {t('archivePrizesDesc', 'Tekintsd meg, milyen jutalmakban részesültek az aréna legjobbjai:')}
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: '#fbbf24' }}>1. Helyezett:</b> +3 Joker csere kupon és 7 nap ingyen prémium tagság.</div>
-                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: isLight ? '#475569' : '#cbd5e1' }}>2. Helyezett:</b> +2 Joker csere kupon a következő futamokra.</div>
-                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: '#b45309' }}>3. Helyezett:</b> +1 Joker csere kupon.</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem' }}>
+                  <div style={{ background: 'var(--bg-main)', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)', wordBreak: 'break-word' }}><b style={{ color: '#fbbf24' }}>1. Helyezett:</b> +3 Joker csere kupon és 7 nap ingyen prémium tagság.</div>
+                  <div style={{ background: 'var(--bg-main)', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)', wordBreak: 'break-word' }}><b style={{ color: isLight ? '#475569' : '#cbd5e1' }}>2. Helyezett:</b> +2 Joker csere kupon a következő futamokra.</div>
+                  <div style={{ background: 'var(--bg-main)', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)', wordBreak: 'break-word' }}><b style={{ color: '#b45309' }}>3. Helyezett:</b> +1 Joker csere kupon.</div>
                 </div>
               </div>
             )}
 
             {/* 📊 RANGSOR FÜL */}
             {subTab === 'rank' && (
-              <div>
-                <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px', marginBottom: '16px', fontSize: '0.82rem' }}>
+              <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-main)', paddingBottom: '6px', marginBottom: '14px', fontSize: '0.78rem' }}>
                   {[
                     { id: 'photo', label: t('archiveSubTabTopPhoto', 'TOP PHOTO') },
                     { id: 'guru', label: t('archiveSubTabMasterPick', 'KÉPMESTER KIEMELÉS') }
                   ].map(sTab => (
-                    <span key={sTab.id} onClick={() => setActiveRankSubTab(sTab.id as any)} style={{ color: activeRankSubTab === sTab.id ? '#38bdf8' : 'var(--text-muted)', fontWeight: 'bold', cursor: 'pointer', borderBottom: activeRankSubTab === sTab.id ? '2px solid #38bdf8' : 'none', paddingBottom: '9px', marginBottom: '-9px', transition: 'all 0.15s' }}>
+                    <span key={sTab.id} onClick={() => setActiveRankSubTab(sTab.id as any)} style={{ color: activeRankSubTab === sTab.id ? '#38bdf8' : 'var(--text-muted)', fontWeight: 'bold', cursor: 'pointer', borderBottom: activeRankSubTab === sTab.id ? '2px solid #38bdf8' : 'none', paddingBottom: '7px', marginBottom: '-7px', transition: 'all 0.15s' }}>
                       {sTab.label}
                     </span>
                   ))}
                 </div>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
                   {activeRankSubTab === 'photo' ? (
                     singlePhotosRankedList.map((entry, idx) => {
                       const photoScore = entry.fair_score !== undefined ? entry.fair_score : (entry.archive_likes || entry.likes_count || 0);
@@ -593,27 +593,28 @@ export default function PastArchive({
                         : (entry.rank_name || entry.rank_level || entry.user_level);
 
                       return (
-                        <div key={entry.id} onClick={() => setActiveArchiveEntry(entry)} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-main)', cursor: 'pointer', transition: 'all 0.1s' }} className="hof-row-card">
-                          <div style={{ fontSize: '0.9rem', fontWeight: '700', width: '30px', color: 'var(--text-muted)' }}>
+                        <div key={entry.id} onClick={() => setActiveArchiveEntry(entry)} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-main)', cursor: 'pointer', transition: 'all 0.1s', boxSizing: 'border-box', width: '100%', gap: '8px' }} className="hof-row-card">
+                          <div style={{ fontSize: '0.85rem', fontWeight: '700', width: '24px', color: 'var(--text-muted)', flexShrink: 0 }}>
                             {idx === 0 ? <Crown size={12} color="#fbbf24" fill="#fbbf24" /> :
                              idx === 1 ? <Trophy size={12} color="var(--text-body)" /> :
                              idx === 2 ? <Trophy size={12} color="#b45309" /> :
                              <span>#{idx + 1}</span>}
                           </div>
-                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" referrerPolicy="no-referrer" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', margin: '0 12px', backgroundColor: '#000', border: '1px solid var(--border-main)' }} onError={handleLocalImageError} />
+                          {/* 🎯 referrerPolicy="no-referrer" az Androidos betöltéshez */}
+                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" referrerPolicy="no-referrer" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px', backgroundColor: '#000', border: '1px solid var(--border-main)', flexShrink: 0 }} onError={handleLocalImageError} />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <strong style={{ color: 'var(--text-title)', display: 'block', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.user_name}</strong>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                            <strong style={{ color: 'var(--text-title)', display: 'block', fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.user_name}</strong>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>
                               {computeArchiveRank(userMatchedRank, Number(photoScore))} {entry.title ? `• "${entry.title}"` : ''}
                             </span>
                             
-                            <div style={{ fontSize: '0.72rem', color: entry?.has_user_liked ? '#f87171' : 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: entry?.has_user_liked ? 'bold' : 'normal' }}>
+                            <div style={{ fontSize: '0.68rem', color: entry?.has_user_liked ? '#f87171' : 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: entry?.has_user_liked ? 'bold' : 'normal' }}>
                               <Heart size={10} fill={entry?.has_user_liked ? '#f87171' : 'transparent'} /> 
                               <span>{entry?.archive_likes || 0} dicséret</span>
                             </div>
                           </div>
                           
-                          <div style={{ color: 'var(--text-title)', fontWeight: '700', fontSize: '0.95rem', textAlign: 'right', marginLeft: '10px' }}>
+                          <div style={{ color: 'var(--text-title)', fontWeight: '700', fontSize: '0.88rem', textAlign: 'right', flexShrink: 0 }}>
                             {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}
                           </div>
                         </div>
@@ -621,19 +622,19 @@ export default function PastArchive({
                     })
                   ) : (
                     guruTopPicksList.map(entry => (
-                      <div key={entry.id} onClick={() => setActiveArchiveEntry(entry)} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', padding: '10px 16px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', cursor: 'pointer', transition: 'all 0.1s' }} className="hof-row-card">
-                        <Sparkles size={12} color="#a78bfa" style={{ width: '22px', flexShrink: 0 }} />
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" referrerPolicy="no-referrer" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', margin: '0 12px', backgroundColor: '#000', border: '1px solid var(--border-main)' }} onError={handleLocalImageError} />
+                      <div key={entry.id} onClick={() => setActiveArchiveEntry(entry)} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', padding: '8px 12px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', cursor: 'pointer', transition: 'all 0.1s', boxSizing: 'border-box', width: '100%', gap: '8px' }} className="hof-row-card">
+                        <Sparkles size={12} color="#a78bfa" style={{ flexShrink: 0 }} />
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" referrerPolicy="no-referrer" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px', backgroundColor: '#000', border: '1px solid var(--border-main)', flexShrink: 0 }} onError={handleLocalImageError} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong style={{ color: 'var(--text-title)', display: 'block', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.user_name}</strong>
-                          <span style={{ color: '#a78bfa', fontSize: '0.75rem', display: 'block', fontWeight: '500' }}>{t('archiveHighlightedByMaster', 'Képmester Kiemelés')}</span>
+                          <strong style={{ color: 'var(--text-title)', display: 'block', fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.user_name}</strong>
+                          <span style={{ color: '#a78bfa', fontSize: '0.7rem', display: 'block', fontWeight: '500' }}>{t('archiveHighlightedByMaster', 'Képmester Kiemelés')}</span>
                           
-                          <div style={{ fontSize: '0.72rem', color: entry?.has_user_liked ? '#f87171' : 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: entry?.has_user_liked ? 'bold' : 'normal' }}>
+                          <div style={{ fontSize: '0.68rem', color: entry?.has_user_liked ? '#f87171' : 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: entry?.has_user_liked ? 'bold' : 'normal' }}>
                             <Heart size={10} fill={entry?.has_user_liked ? '#f87171' : 'transparent'} /> 
                             <span>{entry?.archive_likes || 0} dicséret</span>
                           </div>
                         </div>
-                        <div style={{ color: '#a78bfa', fontWeight: '700', fontSize: '0.85rem', textAlign: 'right', marginLeft: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PICK</div>
+                        <div style={{ color: '#a78bfa', fontWeight: '700', fontSize: '0.78rem', textAlign: 'right', flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>PICK</div>
                       </div>
                     ))
                   )}
@@ -644,7 +645,7 @@ export default function PastArchive({
           </div>
         </div>
       )}
-      
+
       {/* 👑 MODÁL RENDERELÉSI ZÓNA */}
       <ShareCardModal 
         activeShareData={activeShareData} 
@@ -656,7 +657,6 @@ export default function PastArchive({
         handleExecuteShare={handleExecuteShare} 
       />
 
-      {/* INTERAKTÍV KIBESZÉLŐ ÉS HOZZÁSZÓLÁS MODÁL */}
       {currentModalEntry && (
         <ArchiveDetailModal
           entry={currentModalEntry}
@@ -691,8 +691,6 @@ export default function PastArchive({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
-              
-              {/* 2. HELYEZETT */}
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
@@ -708,7 +706,6 @@ export default function PastArchive({
                 </div>
               )}
 
-              {/* 1. HELYEZETT */}
               {adminPosterData.entries[0] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
                   <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
@@ -725,7 +722,6 @@ export default function PastArchive({
                 </div>
               )}
 
-              {/* 3. HELYEZETT */}
               {adminPosterData.entries[2] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
@@ -759,7 +755,7 @@ export default function PastArchive({
           .archive-details-pane {
             border-left: none !important;
             padding-left: 0 !important;
-            margin-top: 10px;
+            margin-top: 8px;
           }
         }
       `}</style>
