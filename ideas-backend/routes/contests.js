@@ -276,7 +276,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 16. KÖTELEZŐ MAFOSZ PROFIL MENTÉSI ÚTVONAL (VÉDETT)
   app.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
     const { email } = req.params;
-    const { name, phone_number, shipping_address, association_id } = req.body;
+    const { name, phone_number, shipping_address, association_id, website_url } = req.body;
 
     if (req.user.email !== email && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más profilját.' });
@@ -288,9 +288,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
          SET name = COALESCE(?, name), 
              phone_number = ?, 
              shipping_address = ?, 
-             association_id = ? 
+             association_id = ?,
+             website_url = ? 
          WHERE email = ?`,
-        [name, phone_number, shipping_address, association_id, email]
+        [name, phone_number, shipping_address, association_id, website_url || null, email]
       );
 
       const [[updatedUser]] = await pool.query(
@@ -308,5 +309,4 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba történt a profil adatok mentése közben.' });
     }
   });
-
 };
