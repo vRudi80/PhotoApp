@@ -468,20 +468,23 @@ export default function Header({
               <Users size={14} /> <span>{t('navClub')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
             </button>
             {dropdownOpen === 'club' && (
-              <div className="dropdown-menu">
-                <button className="drop-item" style={{ color: '#a78bfa', fontWeight: 'bold' }} onClick={() => handleNavClick('club_weekly_review')}>
-                  <Award size={12} /> {lang === 'en' ? 'Weekly Review' : 'Heti Képértékelő'}
-                </button>
-                <button className="drop-item" style={{ color: '#38bdf8' }} onClick={() => handleNavClick('club_courses')}>
-                  <BookOpen size={12} /> {lang === 'en' ? 'Club Courses' : 'Klubtanfolyamok'}
-                </button>
-                <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
-                <button className="drop-item" onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
-                <button className="drop-item" onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
-                <button className="drop-item" onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
-              </div>
-            )}
-          </div>
+  <div className="dropdown-menu">
+    <button className="drop-item" style={{ color: '#10b981', fontWeight: 'bold' }} onClick={() => handleNavClick('club_members')}>
+      <Users size={12} /> {lang === 'en' ? 'Club Members' : 'Klubtagok'}
+    </button>
+    <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
+    <button className="drop-item" style={{ color: '#a78bfa', fontWeight: 'bold' }} onClick={() => handleNavClick('club_weekly_review')}>
+      <Award size={12} /> {lang === 'en' ? 'Weekly Review' : 'Heti Képértékelő'}
+    </button>
+    <button className="drop-item" style={{ color: '#38bdf8' }} onClick={() => handleNavClick('club_courses')}>
+      <BookOpen size={12} /> {lang === 'en' ? 'Club Courses' : 'Klubtanfolyamok'}
+    </button>
+    <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
+    <button className="drop-item" onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
+    <button className="drop-item" onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
+    <button className="drop-item" onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
+  </div>
+)}          </div>
 
           {/* FELFEDEZÉS MENÜ */}
           <div className="nav-item-container">
