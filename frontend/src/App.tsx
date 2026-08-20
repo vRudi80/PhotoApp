@@ -41,6 +41,7 @@ import PhotoHistoryView from './views/PhotoHistoryView';
 import AdminVoterAnalysisView from './views/admin/AdminVoterAnalysisView';
 import ClubWeeklyReviewView from './views/ClubWeeklyReviewView';
 import ClubCoursesView from './views/ClubCoursesView';
+import ClubMembersView from './views/ClubMembersView';
 
 import Gallery3DView from './views/Gallery3DView';
 import { ThemeProvider } from './context/ThemeContext'; 
@@ -768,6 +769,7 @@ function MainContent() {
               <Route path="/quiz" element={<QuizView user={headerUser} />} />
               <Route path="/photo_history" element={<PhotoHistoryView user={headerUser} />} />
               <Route path="/3d_gallery" element={<Gallery3DView user={headerUser} />} />
+              <Route path="/club_members" element={<ClubMembersView user={headerUser} allUsers={allUsers} />} />
 
               <Route path="/admin_quiz" element={user?.email === ADMIN_EMAIL ? <AdminQuizView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
