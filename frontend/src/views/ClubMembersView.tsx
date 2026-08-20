@@ -22,13 +22,13 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
   const getRoleBadge = (role: string) => {
     if (role === 'leader') {
       return {
-        text: 'Vezető 👑',
+        text: 'Vezető',
         color: '#f59e0b'
       };
     }
     if (role === 'deputy') {
       return {
-        text: 'Helyettes 🛡️',
+        text: 'Helyettes',
         color: '#a78bfa'
       };
     }
