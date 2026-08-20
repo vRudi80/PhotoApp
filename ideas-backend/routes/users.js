@@ -96,46 +96,42 @@ app.post('/api/auth/sync', async (req, res) => {
  // ====================================================================
   // 🎯 Felhasználók listája (Saját privát adatokkal kiegészítve!)
   // ====================================================================
-  // ====================================================================
-  // 🎯 Felhasználók listája (Golyóálló lekérdezéssel)
-  // ====================================================================
   app.get('/api/users', requireAuth, async (req, res) => {
     try {
-      let queryStr = `
-        SELECT 
-          google_id, email, name, last_login, club_name, club_role, left_at,
-          is_premium, premium_until, stripe_customer_id, premium_level, 
-          club_id, swap_balance, rank_level, referral_code, referred_by,
-          phone_number, shipping_address, association_id, avatar_url, website_url
-        FROM photo_users
-        ORDER BY name ASC
-      `;
-
-      let [rows] = await pool.query(queryStr).catch(async () => {
-        // Fallback: Ha még nem futott le az ALTER TABLE, lekéri website_url nélkül
-        return await pool.query(`
+      if (req.user.isAdmin) {
+        const [rows] = await pool.query(`
           SELECT 
-            google_id, email, name, last_login, club_name, club_role, left_at,
+            google_id, email, name, last_login, club_name, club_role, 
             is_premium, premium_until, stripe_customer_id, premium_level, 
             club_id, swap_balance, rank_level, referral_code, referred_by,
-            phone_number, shipping_address, association_id, avatar_url
+            phone_number, shipping_address, association_id, avatar_url, website_url
           FROM photo_users
           ORDER BY name ASC
         `);
-      });
-
-      if (!req.user.isAdmin) {
-        const authEmail = (req.user.email || '').trim().toLowerCase();
-        rows = rows.map(u => {
-          if ((u.email || '').trim().toLowerCase() === authEmail) {
-            return u;
-          }
-          const { phone_number, shipping_address, association_id, ...publicData } = u;
-          return publicData;
-        });
+        return res.json(rows);
       }
 
-      return res.json(rows);
+      const [allRows] = await pool.query(`
+        SELECT 
+          email, name, club_name, club_role, 
+          is_premium, premium_level, club_id, 
+          rank_level, avatar_url, website_url,
+          phone_number, shipping_address, association_id
+        FROM photo_users
+        ORDER BY name ASC
+      `);
+
+      const authEmail = (req.user.email || '').trim().toLowerCase();
+
+      const sanitizedRows = allRows.map(u => {
+        if ((u.email || '').trim().toLowerCase() === authEmail) {
+          return u;
+        }
+        const { phone_number, shipping_address, association_id, ...publicData } = u;
+        return publicData;
+      });
+
+      return res.json(sanitizedRows);
 
     } catch (err) {
       console.error("❌ Hiba a photo_users lekérésekor:", err);
