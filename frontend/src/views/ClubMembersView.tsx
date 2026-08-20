@@ -32,7 +32,7 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
   const getRoleBadge = (role: string) => {
     if (role === 'leader') {
       return { 
-        text: 'Vezető 👑', 
+        text: 'Vezető', 
         color: isLight ? '#b45309' : '#f59e0b', 
         bg: isLight ? 'rgba(245, 158, 11, 0.12)' : 'rgba(245, 158, 11, 0.15)', 
         border: '1px solid rgba(245, 158, 11, 0.3)' 
@@ -40,7 +40,7 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
     }
     if (role === 'deputy') {
       return { 
-        text: 'Helyettes 🛡️', 
+        text: 'Helyettes', 
         color: isLight ? '#7c3aed' : '#a78bfa', 
         bg: isLight ? 'rgba(124, 58, 237, 0.12)' : 'rgba(167, 139, 250, 0.15)', 
         border: '1px solid rgba(167, 139, 250, 0.3)' 
