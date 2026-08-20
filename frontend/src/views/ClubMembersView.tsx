@@ -12,12 +12,31 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
 
   const userClub = user?.club_name;
 
-  // 🎯 Csak a felhasználó klubjának AK TÍV tagjait szűrjük ki
+  // Csak a felhasználó klubjának AKTÍV tagjait szűrjük ki
   const activeClubMembers = (Array.isArray(allUsers) ? allUsers : []).filter(u => {
     const isSameClub = u.club_name && u.club_name === userClub;
     const isActive = !u.left_at || String(u.left_at).trim() === '';
     return isSameClub && isActive;
   });
+
+  const getRoleBadge = (role: string) => {
+    if (role === 'leader') {
+      return {
+        text: 'Vezető 👑',
+        color: '#f59e0b'
+      };
+    }
+    if (role === 'deputy') {
+      return {
+        text: 'Helyettes 🛡️',
+        color: '#a78bfa'
+      };
+    }
+    return {
+      text: 'Klubtag',
+      color: '#10b981'
+    };
+  };
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px 16px', animation: 'fadeIn 0.3s ease-out' }}>
@@ -44,6 +63,7 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
             const avatar = member.avatar_url || member.picture || silhouetteAvatar;
             const hasWebsite = member.website_url && member.website_url.trim().length > 0;
             const website = hasWebsite ? (member.website_url.startsWith('http') ? member.website_url : `https://${member.website_url}`) : '';
+            const roleBadge = getRoleBadge(member.club_role);
 
             return (
               <div 
@@ -67,14 +87,20 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
                     alt="" 
                     referrerPolicy="no-referrer"
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
-                    style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #10b981', flexShrink: 0, backgroundColor: '#090d16' }}
+                    style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${roleBadge.color}`, flexShrink: 0, backgroundColor: '#090d16' }}
                   />
                   <div style={{ minWidth: 0 }}>
                     <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '1rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {member.name || 'Névtelen Tag'}
                     </h4>
-                    <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: '600' }}>
-                      {member.club_role === 'leader' ? 'Klubvezető 👑' : member.club_role === 'deputy' ? 'Helyettes 🛡️' : 'Klubtag'}
+                    <span style={{ 
+                      fontSize: '0.75rem', 
+                      color: roleBadge.color, 
+                      fontWeight: '600',
+                      display: 'inline-block',
+                      marginTop: '2px'
+                    }}>
+                      {roleBadge.text}
                     </span>
                   </div>
                 </div>
