@@ -116,7 +116,7 @@ app.post('/api/auth/sync', async (req, res) => {
         SELECT 
           email, name, club_name, club_role, 
           is_premium, premium_level, club_id, 
-          rank_level, avatar_url,
+          rank_level, avatar_url, website_url,
           phone_number, shipping_address, association_id
         FROM photo_users
         ORDER BY name ASC
@@ -191,12 +191,12 @@ app.post('/api/auth/sync', async (req, res) => {
   // ====================================================================
   // 👤 HIVATALOS MAFOSZ PROFIL ADATOK MENTÉSE (IDOR Fix)
   // ====================================================================
-  app.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
+  aapp.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
     const { email } = req.params;
-    const { name, phone_number, shipping_address, association_id } = req.body;
+    const { name, phone_number, shipping_address, association_id, website_url } = req.body;
 
     if (req.user.email !== email && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó profilját.' });
+      return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     }
 
     if (!name || !name.trim()) {
@@ -206,9 +206,16 @@ app.post('/api/auth/sync', async (req, res) => {
     try {
       await pool.query(
         `UPDATE photo_users 
-         SET name = ?, phone_number = ?, shipping_address = ?, association_id = ? 
+         SET name = ?, phone_number = ?, shipping_address = ?, association_id = ?, website_url = ? 
          WHERE email = ?`,
-        [name.trim(), phone_number?.trim() || null, shipping_address?.trim() || null, association_id?.trim() || null, email]
+        [
+          name.trim(), 
+          phone_number?.trim() || null, 
+          shipping_address?.trim() || null, 
+          association_id?.trim() || null, 
+          website_url?.trim() || null, 
+          email
+        ]
       );
       
       await pool.query('UPDATE weekly_entries SET user_name = ? WHERE user_email = ?', [name.trim(), email]);
