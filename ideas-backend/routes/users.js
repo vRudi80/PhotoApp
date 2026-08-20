@@ -190,39 +190,39 @@ app.post('/api/auth/sync', async (req, res) => {
   // 👤 HIVATALOS MAFOSZ PROFIL ADATOK MENTÉSE (IDOR Fix)
   // ====================================================================
   app.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
-    const { email } = req.params;
-    const { name, phone_number, shipping_address, association_id, website_url } = req.body;
+  const { email } = req.params;
+  const { name, phone_number, shipping_address, association_id, website_url } = req.body;
 
-    if (req.user.email !== email && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó profilját.' });
-    }
+  if (req.user.email !== email && !req.user.isAdmin) {
+    return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+  }
 
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'A hivatalos név megadása kötelező!' });
-    }
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'A hivatalos név megadása kötelező!' });
+  }
 
-    try {
-      await pool.query(
-        `UPDATE photo_users 
-         SET name = ?, phone_number = ?, shipping_address = ?, association_id = ?, website_url = ? 
-         WHERE email = ?`,
-        [
-          name.trim(), 
-          phone_number?.trim() || null, 
-          shipping_address?.trim() || null, 
-          association_id?.trim() || null, 
-          website_url?.trim() || null, 
-          email
-        ]
-      );
-      
-      await pool.query('UPDATE weekly_entries SET user_name = ? WHERE user_email = ?', [name.trim(), email]);
-      res.json({ success: true, message: 'Profil adatok sikeresen frissítve!' });
-    } catch (err) {
-      console.error("🔥 Hiba a hivatalos profil mentésekor:", err.message);
-      res.status(500).json({ error: 'Adatbázis hiba a profil mentése során.' });
-    }
-  });
+  try {
+    await pool.query(
+      `UPDATE photo_users 
+       SET name = ?, phone_number = ?, shipping_address = ?, association_id = ?, website_url = ? 
+       WHERE email = ?`,
+      [
+        name.trim(), 
+        phone_number?.trim() || null, 
+        shipping_address?.trim() || null, 
+        association_id?.trim() || null, 
+        website_url?.trim() || null, 
+        email
+      ]
+    );
+    
+    await pool.query('UPDATE weekly_entries SET user_name = ? WHERE user_email = ?', [name.trim(), email]);
+    res.json({ success: true, message: 'Profil adatok sikeresen frissítve!' });
+  } catch (err) {
+    console.error("🔥 Hiba a profil mentésekor:", err.message);
+    res.status(500).json({ error: 'Adatbázis hiba a profil mentése során.' });
+  }
+});
 
   // ====================================================================
   // 👑 EXKLUZÍV ADMIN VÉGPONT
