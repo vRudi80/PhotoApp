@@ -101,20 +101,19 @@ app.post('/api/auth/sync', async (req, res) => {
       if (req.user.isAdmin) {
         const [rows] = await pool.query(`
           SELECT 
-            google_id, email, name, last_login, club_name, club_role, 
+            google_id, email, name, last_login, club_name, club_role, left_at,
             is_premium, premium_until, stripe_customer_id, premium_level, 
             club_id, swap_balance, rank_level, referral_code, referred_by,
-            phone_number, shipping_address, association_id, avatar_url 
+            phone_number, shipping_address, association_id, avatar_url, website_url
           FROM photo_users
           ORDER BY name ASC
         `);
         return res.json(rows);
       }
 
-      // Sima felhasználónál a SAJÁT sorában átengedjük a telefonszámot és a címet is!
       const [allRows] = await pool.query(`
         SELECT 
-          email, name, club_name, club_role, 
+          email, name, club_name, club_role, left_at,
           is_premium, premium_level, club_id, 
           rank_level, avatar_url, website_url,
           phone_number, shipping_address, association_id
@@ -124,7 +123,6 @@ app.post('/api/auth/sync', async (req, res) => {
 
       const authEmail = (req.user.email || '').trim().toLowerCase();
 
-      // Mások privát adatait kimaszkoljuk, a sajátját hiánytalanul meghagyjuk
       const sanitizedRows = allRows.map(u => {
         if ((u.email || '').trim().toLowerCase() === authEmail) {
           return u;
@@ -191,12 +189,12 @@ app.post('/api/auth/sync', async (req, res) => {
   // ====================================================================
   // 👤 HIVATALOS MAFOSZ PROFIL ADATOK MENTÉSE (IDOR Fix)
   // ====================================================================
-  aapp.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
+  app.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
     const { email } = req.params;
     const { name, phone_number, shipping_address, association_id, website_url } = req.body;
 
     if (req.user.email !== email && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó profilját.' });
     }
 
     if (!name || !name.trim()) {
