@@ -32,7 +32,7 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
   const getRoleBadge = (role: string) => {
     if (role === 'leader') {
       return { 
-        text: 'Vezető', 
+        text: 'Vezető 👑', 
         color: isLight ? '#b45309' : '#f59e0b', 
         bg: isLight ? 'rgba(245, 158, 11, 0.12)' : 'rgba(245, 158, 11, 0.15)', 
         border: '1px solid rgba(245, 158, 11, 0.3)' 
@@ -40,7 +40,7 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
     }
     if (role === 'deputy') {
       return { 
-        text: 'Helyettes', 
+        text: 'Helyettes 🛡️', 
         color: isLight ? '#7c3aed' : '#a78bfa', 
         bg: isLight ? 'rgba(124, 58, 237, 0.12)' : 'rgba(167, 139, 250, 0.15)', 
         border: '1px solid rgba(167, 139, 250, 0.3)' 
@@ -105,8 +105,9 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
                     style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${roleBadge.color}`, flexShrink: 0, backgroundColor: isLight ? '#e2e8f0' : '#090d16' }}
                   />
-                  <div style={{ minWidth: 0 }}>
-                    <h4 style={{ margin: 0, color: 'var(--text-title, #f8fafc)', fontSize: '1rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    {/* 🎯 Név kiírás automatikus soremeléssel */}
+                    <h4 style={{ margin: 0, color: 'var(--text-title, #f8fafc)', fontSize: '0.95rem', fontWeight: 'bold', wordBreak: 'break-word', lineHeight: '1.25' }}>
                       {member.name || 'Névtelen Tag'}
                     </h4>
                     <span style={{ 
@@ -118,7 +119,7 @@ export default function ClubMembersView({ user, allUsers }: ClubMembersViewProps
                       borderRadius: '6px',
                       fontWeight: 'bold',
                       display: 'inline-block',
-                      marginTop: '4px'
+                      marginTop: '6px'
                     }}>
                       {roleBadge.text}
                     </span>
