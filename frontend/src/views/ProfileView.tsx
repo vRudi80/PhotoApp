@@ -38,6 +38,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [phone, setPhone] = useState<string>('');
   const [address, setAddress] = useState<string>('');
   const [associationId, setAssociationId] = useState<string>('');
+  const [websiteUrl, setWebsiteUrl] = useState<string>('');
   const [membershipStart, setMembershipStart] = useState<string>('');
   const [membershipEnd, setMembershipEnd] = useState<string>('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -70,6 +71,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         setPhone(freshData.phone_number || freshData.phone || '');
         setAddress(freshData.shipping_address || freshData.address || '');
         setAssociationId(freshData.association_id || '');
+        setWebsiteUrl(freshData.website_url || '');
         if (freshData.avatar_url) {
           setAvatarPreview(freshData.avatar_url);
         }
@@ -212,7 +214,8 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           name: nameInput.trim(),
           phone_number: phone.trim(),
           shipping_address: address.trim(),
-          association_id: associationId.trim()
+          association_id: associationId.trim(),
+          website_url: websiteUrl.trim()
         })
       });
 
@@ -365,6 +368,9 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
               <label style={{ fontSize: '0.8rem', color: '#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Igazolványszám (Opcionális)</label>
               <input type="text" value={associationId} onChange={e => setAssociationId(e.target.value)} style={inputStyle} placeholder="FP-XXXX" disabled={isSavingProfile} />
+
+              <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Egyéni Weboldal / Portfólió URL</label>
+              <input type="url" value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} style={inputStyle} placeholder="https://sajatalbumom.hu" disabled={isSavingProfile} />
             </div>
 
             <button type="submit" disabled={isSavingProfile || !nameInput.trim()} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: isSavingProfile ? 'not-allowed' : 'pointer', transition: 'all 0.2s', marginTop: '10px' }}>
