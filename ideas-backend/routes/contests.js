@@ -200,21 +200,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 10. Nevezők statisztikái (VÉDETT: Admin, Klubvezető és Helyettes)
-  app.get('/api/admin/stats/:contestId', requireAuth, async (req, res) => {
+  // 10. Nevezők statisztikái (Mindkét URL útvonal támogatása)
+  const handleContestStats = async (req, res) => {
     const canView = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
-    if (!canView) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin, klubvezető vagy helyettes tekintheti meg.' });
+    if (!canView) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
 
     try { 
       const [rows] = await pool.query('SELECT user_name, user_email, category, COUNT(*) as image_count FROM photo_entries WHERE contest_id = ? GROUP BY user_email, user_name, category ORDER BY user_name ASC, category ASC', [req.params.contestId]); 
       res.json(rows); 
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
+  };
+  app.get('/api/admin/stats/:contestId', requireAuth, handleContestStats);
+  app.get('/api/contests/:contestId/stats', requireAuth, handleContestStats);
 
-  // 11. Zsűri haladási statisztikák (VÉDETT: Admin, Klubvezető és Helyettes)
-  app.get('/api/admin/jury-stats/:contestId', requireAuth, async (req, res) => {
+  // 11. Zsűri haladási statisztikák (Mindkét URL útvonal támogatása)
+  const handleJuryStats = async (req, res) => {
     const canView = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
-    if (!canView) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin, klubvezető vagy helyettes tekintheti meg.' });
+    if (!canView) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
 
     try {
       const contestId = req.params.contestId;
@@ -222,7 +224,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [stats] = await pool.query(`SELECT j.user_email, COALESCE(v.voted_count, 0) as voted_count FROM photo_jury j LEFT JOIN (SELECT pv.jury_email, COUNT(*) as voted_count FROM photo_votes pv JOIN photo_entries pe ON pv.entry_id = pe.id WHERE pe.contest_id = ? GROUP BY pv.jury_email) v ON j.user_email = v.jury_email WHERE j.contest_id = ?`, [contestId, contestId]);
       res.json({ total_entries: total_entries || 0, stats });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
+  };
+  app.get('/api/admin/jury-stats/:contestId', requireAuth, handleJuryStats);
+  app.get('/api/contests/:contestId/jury-stats', requireAuth, handleJuryStats);
 
   app.get('/api/me', requireAuth, async (req, res) => {
     try {
