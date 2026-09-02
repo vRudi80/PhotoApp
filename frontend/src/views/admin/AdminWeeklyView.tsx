@@ -727,17 +727,26 @@ export default function AdminWeeklyView() {
                         </span>
                       </div>
 
-                      <div style={{ fontSize: '0.82rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px', wordBreak: 'break-all', marginTop: '2px' }}>
-                        <span style={{ color: '#a78bfa' }}>👑</span> 
-                        <strong style={{ color: '#94a3b8' }}>{lang === 'en' ? 'Master:' : 'Képmester:'}</strong> 
-                        <span>{tData.master_email || (lang === 'en' ? 'None assigned' : 'Nincs hozzárendelve')}</span>
-                      </div>
+                     <div style={{ fontSize: '0.82rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px', wordBreak: 'break-all', marginTop: '2px' }}>
+  <span style={{ color: '#a78bfa' }}>👑</span> 
+  <strong style={{ color: '#94a3b8' }}>{lang === 'en' ? 'Master:' : 'Képmester:'}</strong> 
+  <span>{tData.master_email || (lang === 'en' ? 'None assigned' : 'Nincs hozzárendelve')}</span>
+</div>
 
-                      <div style={{ fontSize: '0.82rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px', wordBreak: 'break-word' }}>
-                        <span style={{ color: '#f59e0b' }}>📷</span> 
-                        <strong style={{ color: '#94a3b8' }}>{lang === 'en' ? 'Cover by:' : 'Borítókép:'}</strong> 
-                        <span>{tData.cover_author || (lang === 'en' ? 'Not specified' : 'Nincs megadva')}</span>
-                      </div>
+<div style={{ fontSize: '0.82rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px', wordBreak: 'break-word' }}>
+  <span style={{ color: '#f59e0b' }}>📷</span> 
+  <strong style={{ color: '#94a3b8' }}>{lang === 'en' ? 'Cover by:' : 'Borítókép:'}</strong> 
+  <span>{tData.cover_author || (lang === 'en' ? 'Not specified' : 'Nincs megadva')}</span>
+</div>
+
+{/* 🎯 ÚJ: Javaslattevő megjelenítése */}
+{tData.proposed_by && (
+  <div style={{ fontSize: '0.82rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px', wordBreak: 'break-all', marginTop: '2px' }}>
+    <span style={{ color: '#38bdf8' }}>👤</span> 
+    <strong style={{ color: '#94a3b8' }}>{lang === 'en' ? 'Proposed by:' : 'Javasolta:'}</strong> 
+    <span>{tData.proposed_by}</span>
+  </div>
+)}
 
                       {tData.pending_master_email && (
                         <div style={{ marginTop: '5px', padding: '10px 14px', background: '#eab30810', border: '1px solid #eab30840', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
