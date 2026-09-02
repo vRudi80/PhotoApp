@@ -1340,6 +1340,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true, message: `Sikeres újraépítés! ${processedEntriesCount} nevezés helyezése és a rangok frissítve.` });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
+
+  // 🎯 SAJÁT BEKÜLDÖTT JÁTÉKJAVASLATOK LEKÉRDEZÉSE STÁTUSZ SZERINT
+  app.get('/api/weekly/my-proposals', requireAuth, async (req, res) => {
+    const { userEmail } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
+    
+    if (req.user.email !== userEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    }
+
+    try {
+      const [rows] = await pool.query(
+        "SELECT * FROM weekly_topics WHERE LOWER(TRIM(proposed_by)) = LOWER(TRIM(?)) ORDER BY created_at DESC",
+        [userEmail]
+      );
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba a saját javaslatok lekérésekor:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba a javaslatok betöltésekor.' });
+    }
+  });
 // 🎯 AKTÍV KÉPMESTERI SZAVAZATOK FELKEREKÍTÉSE (+20 PONT/SZAVAZAT)
 app.get('/api/admin/fix-active-master-votes', async (req, res) => {
     if (req.query.secret !== 'PHOTAWESOME_REBUILD_2026') {
