@@ -4,8 +4,6 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
-
-  
   // 1. Pályázatok lekérése (Nyilvános)
   app.get('/api/contests', async (req, res) => {
     try { 
@@ -21,9 +19,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 2. Új pályázat létrehozása (VÉDETT: Csak Admin)
+  // 2. Új pályázat létrehozása (VÉDETT: Admin, Klubvezető és Helyettes)
   app.post('/api/contests', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin hozhat létre pályázatot.' });
+    const canManage = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
+    if (!canManage) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin, klubvezető vagy helyettes hozhat létre pályázatot.' });
     
     const { 
       title, description, startDate, endDate, categories, 
@@ -59,9 +58,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 3. Pályázat módosítása (VÉDETT: Csak Admin)
+  // 3. Pályázat módosítása (VÉDETT: Admin, Klubvezető és Helyettes)
   app.put('/api/contests/:id', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    const canManage = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
+    if (!canManage) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     
     const { 
       title, description, startDate, endDate, categories, 
@@ -98,7 +98,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 4. Pályázat törlése (VÉDETT: Csak Admin)
+  // 4. Pályázat törlése (VÉDETT: Kizárólag Főadmin)
   app.delete('/api/contests/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     try {
@@ -200,15 +200,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 10. Admin statisztikák (VÉDETT: Csak Admin)
+  // 10. Nevezők statisztikái (VÉDETT: Admin, Klubvezető és Helyettes)
   app.get('/api/admin/stats/:contestId', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
-    try { const [rows] = await pool.query('SELECT user_name, user_email, category, COUNT(*) as image_count FROM photo_entries WHERE contest_id = ? GROUP BY user_email, user_name, category ORDER BY user_name ASC, category ASC', [req.params.contestId]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    const canView = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
+    if (!canView) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin, klubvezető vagy helyettes tekintheti meg.' });
+
+    try { 
+      const [rows] = await pool.query('SELECT user_name, user_email, category, COUNT(*) as image_count FROM photo_entries WHERE contest_id = ? GROUP BY user_email, user_name, category ORDER BY user_name ASC, category ASC', [req.params.contestId]); 
+      res.json(rows); 
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 11. Admin zsűri statisztikák (VÉDETT: Csak Admin)
+  // 11. Zsűri haladási statisztikák (VÉDETT: Admin, Klubvezető és Helyettes)
   app.get('/api/admin/jury-stats/:contestId', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    const canView = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
+    if (!canView) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin, klubvezető vagy helyettes tekintheti meg.' });
+
     try {
       const contestId = req.params.contestId;
       const [[{ total_entries }]] = await pool.query('SELECT COUNT(*) as total_entries FROM photo_entries WHERE contest_id = ?', [contestId]);
