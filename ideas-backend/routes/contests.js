@@ -4,6 +4,19 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
+  // 🎯 Segédfüggvény: A felhasználó friss szerepkörének lekérése az adatbázisból
+  const getUserClubInfo = async (email) => {
+    try {
+      const [[u]] = await pool.query(
+        'SELECT club_role, club_name, club_id FROM photo_users WHERE email = ?',
+        [email]
+      );
+      return u || { club_role: 'member', club_name: null, club_id: null };
+    } catch (e) {
+      return { club_role: 'member', club_name: null, club_id: null };
+    }
+  };
+
   // 1. Pályázatok lekérése (Nyilvános)
   app.get('/api/contests', async (req, res) => {
     try { 
@@ -21,7 +34,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // 2. Új pályázat létrehozása (VÉDETT: Admin, Klubvezető és Helyettes)
   app.post('/api/contests', requireAuth, async (req, res) => {
-    const canManage = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
+    const userDb = await getUserClubInfo(req.user.email);
+    const canManage = req.user.isAdmin || userDb.club_role === 'leader' || userDb.club_role === 'deputy';
     if (!canManage) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin, klubvezető vagy helyettes hozhat létre pályázatot.' });
     
     const { 
@@ -60,7 +74,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // 3. Pályázat módosítása (VÉDETT: Admin, Klubvezető és Helyettes)
   app.put('/api/contests/:id', requireAuth, async (req, res) => {
-    const canManage = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
+    const userDb = await getUserClubInfo(req.user.email);
+    const canManage = req.user.isAdmin || userDb.club_role === 'leader' || userDb.club_role === 'deputy';
     if (!canManage) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     
     const { 
@@ -200,9 +215,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 10. Nevezők statisztikái (Mindkét URL útvonal támogatása)
+  // 10. Nevezők statisztikái (Adatbázis alapú szerepkör-ellenőrzéssel)
   const handleContestStats = async (req, res) => {
-    const canView = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
+    const userDb = await getUserClubInfo(req.user.email);
+    const canView = req.user.isAdmin || userDb.club_role === 'leader' || userDb.club_role === 'deputy';
     if (!canView) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
 
     try { 
@@ -213,9 +229,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.get('/api/admin/stats/:contestId', requireAuth, handleContestStats);
   app.get('/api/contests/:contestId/stats', requireAuth, handleContestStats);
 
-  // 11. Zsűri haladási statisztikák (Mindkét URL útvonal támogatása)
+  // 11. Zsűri haladási statisztikák (Adatbázis alapú szerepkör-ellenőrzéssel)
   const handleJuryStats = async (req, res) => {
-    const canView = req.user.isAdmin || req.user.club_role === 'leader' || req.user.club_role === 'deputy';
+    const userDb = await getUserClubInfo(req.user.email);
+    const canView = req.user.isAdmin || userDb.club_role === 'leader' || userDb.club_role === 'deputy';
     if (!canView) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
 
     try {
