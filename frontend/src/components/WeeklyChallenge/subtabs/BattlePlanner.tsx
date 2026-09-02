@@ -118,7 +118,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+ const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title || !description || !startDate || !endDate || !coverFile) {
@@ -131,10 +131,14 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     formData.append('title_en', titleEn); 
     formData.append('description', description);
     formData.append('description_en', descriptionEn); 
-    formData.append('cover_author', coverAuthor);
     
-    const computedMasterName = isMaster ? (user?.name || user?.email || '') : '';
-    formData.append('master_name', computedMasterName);
+    // 🎯 1. Ha üres, a feltöltő neve/emailje lesz a borítókép készítője
+    const finalCoverAuthor = coverAuthor.trim() || user?.name || user?.email || '';
+    formData.append('cover_author', finalCoverAuthor);
+    
+    // 🎯 2. Képmesterként KIZÁRÓLAG az e-mail címet küldjük el!
+    const computedMasterEmail = isMaster ? (user?.email || '') : '';
+    formData.append('master_name', computedMasterEmail);
     
     formData.append('start_date', startDate);
     formData.append('end_date', endDate);
