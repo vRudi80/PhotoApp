@@ -1042,7 +1042,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const file = req.file; 
     const { title, title_en, description, description_en, cover_author, master_name, start_date, end_date, userEmail } = req.body;
     
-    if (req.user.email !== userEmail) { 
+    const senderEmail = userEmail || req.user.email;
+
+    if (req.user.email !== senderEmail && !req.user.isAdmin) { 
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); 
       return res.status(403).json({ error: 'Munkamenet hiba!' }); 
     }
@@ -1054,7 +1056,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         coverUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
-      await pool.query('INSERT INTO weekly_topics (title, title_en, description, description_en, start_date, end_date, master_email, cover_url, cover_author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [title, title_en || null, description, description_en || null, start_date, end_date, master_name || null, coverUrl, cover_author || null]);
+
+      // 🎯 Borítókép készítőjének fallback-je és proposed_by elmentése az adatbázisba
+      const finalCoverAuthor = cover_author?.trim() || req.user.name || senderEmail;
+
+      await pool.query(
+        'INSERT INTO weekly_topics (title, title_en, description, description_en, start_date, end_date, master_email, cover_url, cover_author, proposed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+        [title, title_en || null, description, description_en || null, start_date, end_date, master_name || null, coverUrl, finalCoverAuthor, senderEmail]
+      );
+
       res.json({ success: true });
     } catch (err) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
