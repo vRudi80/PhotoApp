@@ -4,6 +4,7 @@ import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
 import logoHu from './logo_hu2.png';
 import logoEn from './logo_en2.png';
+import packageJson from '../package.json';
 
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
@@ -23,10 +24,8 @@ import {
   Settings,
   ShieldAlert,
   LogOut,
-  CreditCard,
   LifeBuoy,
   Home,
-  Flame,
   Users,
   Sun,
   MessageCircleQuestion,
@@ -35,7 +34,10 @@ import {
   BookOpen,
   Box,
   Gamepad2,
-  Smartphone
+  Smartphone,
+  Calendar,
+  Building2,
+  Ban
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -85,7 +87,7 @@ const HEADER_STYLES = `
       border: 1px solid var(--border-main, #222f47);
       border-radius: 8px;
       padding: 6px;
-      min-width: 200px;
+      min-width: 210px;
       box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     }
     .desktop-user-dropdown {
@@ -206,9 +208,9 @@ const HEADER_STYLES = `
     background: transparent;
     border: none;
     color: var(--text-body, #94a3b8);
-    padding: 9px 12px;
+    padding: 8px 10px;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
@@ -218,8 +220,16 @@ const HEADER_STYLES = `
     gap: 8px;
   }
   .drop-item:hover, .drop-item.active {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.08);
     color: var(--text-title, #f8fafc);
+  }
+  .dropdown-section-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 10px 2px 10px;
   }
 `;
 
@@ -260,8 +270,8 @@ export default function Header({
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [unreadForumCount, setUnreadForumCount] = useState<number>(0);
 
-  const [apkInfo, setApkInfo] = useState<{ tag: string; url: string }>({
-    tag: 'v1.2',
+  const [apkInfo] = useState<{ tag: string; url: string }>({
+    tag: `v${packageJson.version}`,
     url: 'https://github.com/vRudi80/PhotoApp/releases/latest/download/photawesome.apk'
   });
 
@@ -286,20 +296,6 @@ export default function Header({
       ...extraHeaders
     };
   };
-
-  useEffect(() => {
-    fetch('https://api.github.com/repos/vRudi80/PhotoApp/releases/latest')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.tag_name) {
-          setApkInfo(prev => ({
-            ...prev,
-            tag: data.tag_name
-          }));
-        }
-      })
-      .catch(err => console.warn('GitHub release fetch error:', err));
-  }, []);
 
   useEffect(() => {
     const fetchUnreadForumTotal = async () => {
@@ -332,7 +328,6 @@ export default function Header({
     setIsMobileMenuOpen(false); 
   };
 
-  // 🎯 GOLYÓÁLLÓ PROFILKÉP GENERÁLÓ + SILHOUETTE FALLBACK
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
   const avatarUrl = user?.avatar_url || user?.picture || silhouetteAvatar;
 
@@ -468,23 +463,24 @@ export default function Header({
               <Users size={14} /> <span>{t('navClub')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
             </button>
             {dropdownOpen === 'club' && (
-  <div className="dropdown-menu">
-    <button className="drop-item" style={{ color: '#10b981', fontWeight: 'bold' }} onClick={() => handleNavClick('club_members')}>
-      <Users size={12} /> {lang === 'en' ? 'Club Members' : 'Klubtagok'}
-    </button>
-    <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
-    <button className="drop-item" style={{ color: '#a78bfa', fontWeight: 'bold' }} onClick={() => handleNavClick('club_weekly_review')}>
-      <Award size={12} /> {lang === 'en' ? 'Weekly Review' : 'Heti Képértékelő'}
-    </button>
-    <button className="drop-item" style={{ color: '#38bdf8' }} onClick={() => handleNavClick('club_courses')}>
-      <BookOpen size={12} /> {lang === 'en' ? 'Club Courses' : 'Klubtanfolyamok'}
-    </button>
-    <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
-    <button className="drop-item" onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
-    <button className="drop-item" onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
-    <button className="drop-item" onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
-  </div>
-)}          </div>
+              <div className="dropdown-menu">
+                <button className="drop-item" style={{ color: '#10b981', fontWeight: 'bold' }} onClick={() => handleNavClick('club_members')}>
+                  <Users size={12} /> {lang === 'en' ? 'Club Members' : 'Klubtagok'}
+                </button>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
+                <button className="drop-item" style={{ color: '#a78bfa', fontWeight: 'bold' }} onClick={() => handleNavClick('club_weekly_review')}>
+                  <Award size={12} /> {lang === 'en' ? 'Weekly Review' : 'Heti Képértékelő'}
+                </button>
+                <button className="drop-item" style={{ color: '#38bdf8' }} onClick={() => handleNavClick('club_courses')}>
+                  <BookOpen size={12} /> {lang === 'en' ? 'Club Courses' : 'Klubtanfolyamok'}
+                </button>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
+                <button className="drop-item" onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
+              </div>
+            )}
+          </div>
 
           {/* FELFEDEZÉS MENÜ */}
           <div className="nav-item-container">
@@ -511,35 +507,80 @@ export default function Header({
             </button>
           </div>
           
-          {/* VEZETŐ SÁV */}
+          {/* 🛡️ VEZETŐI & ADMIN MENÜ (LETISZTULT, CSOPORTOSÍTOTT STRUKTÚRA) */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container">
-              <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
+              <button 
+                className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} 
+                style={{ color: '#f87171' }} 
+                onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}
+              >
                 <ShieldAlert size={14} /> <span>{lang === 'en' ? 'Leader' : 'Vezető'}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
               </button>
+
               {dropdownOpen === 'admin' && (
-                <div className="dropdown-menu">
-                  {isLeader && <button className="drop-item" style={{ color: '#0ea5e9' }} onClick={() => handleNavClick('leader_club')}>{t('subLeaderClub')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>{t('subManageContests')}</button>}
-                  {user?.email === ADMIN_EMAIL && (
-                    <button 
-                      className="drop-item" 
-                      style={{ color: activeTab === 'admin_voter_analysis' ? '#ef4444' : '#f87171', fontWeight: 'bold' }} 
-                      onClick={() => handleNavClick('admin_voter_analysis')}
-                    >
-                      <ShieldAlert size={12} /> Szavazat Analitika
+                <div className="dropdown-menu" style={{ minWidth: '220px' }}>
+                  
+                  {/* KLUB & CSOPORT MANAGEMENT */}
+                  <div className="dropdown-section-title">{lang === 'en' ? 'Club Management' : 'Klub & Közösség'}</div>
+                  {isLeader && (
+                    <button className={`drop-item ${activeTab === 'leader_club' ? 'active' : ''}`} onClick={() => handleNavClick('leader_club')}>
+                      <Users size={13} /> {t('subLeaderClub')}
                     </button>
                   )}
-                  <button className="drop-item" style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
-                  <button className="drop-item" style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: '#fbbf24', fontWeight: 'bold' }} onClick={() => handleNavClick('admin_points')}>Pontrendszer</button>}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: '#f59e0b', fontWeight: 'bold' }} onClick={() => handleNavClick('admin_quiz')}>Kvíz Kezelése</button>}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" onClick={() => handleNavClick('admin_banned_emails')}>Tiltólista</button>}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
+                  <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} onClick={() => handleNavClick('admin_meetings')}>
+                    <Calendar size={13} /> {t('subManageMeetings')}
+                  </button>
+                  <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('admin_homeworks')}>
+                    <BookOpen size={13} /> {t('subManageHomeworks')}
+                  </button>
+
+                  {/* PÁLYÁZATOK & TARTALOM (CSAK ADMIN) */}
+                  {user?.email === ADMIN_EMAIL && (
+                    <>
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '5px 0' }}></div>
+                      <div className="dropdown-section-title">{lang === 'en' ? 'Contests & Events' : 'Pályázatok & Események'}</div>
+                      <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} onClick={() => handleNavClick('admin_contests')}>
+                        <Award size={13} /> {t('subManageContests')}
+                      </button>
+                      <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} onClick={() => handleNavClick('admin_weekly')}>
+                        <Gamepad2 size={13} /> {t('subManageWeekly')}
+                      </button>
+                      <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} onClick={() => handleNavClick('admin_salons')}>
+                        <Globe size={13} /> {t('subManageSalons')}
+                      </button>
+                      <button className={`drop-item ${activeTab === 'admin_quiz' ? 'active' : ''}`} onClick={() => handleNavClick('admin_quiz')}>
+                        <MessageCircleQuestion size={13} /> {lang === 'en' ? 'Manage Quiz' : 'Kvíz Kezelése'}
+                      </button>
+                    </>
+                  )}
+
+                  {/* RENDSZER & RENDSZERADMINISZTRÁCIÓ (CSAK ADMIN) */}
+                  {user?.email === ADMIN_EMAIL && (
+                    <>
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '5px 0' }}></div>
+                      <div className="dropdown-section-title">{lang === 'en' ? 'System & Users' : 'Rendszer & Tagok'}</div>
+                      <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} onClick={() => handleNavClick('admin_users')}>
+                        <User size={13} /> {t('subManageUsers')}
+                      </button>
+                      <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} onClick={() => handleNavClick('admin_clubs')}>
+                        <Building2 size={13} /> {t('subManageClubs')}
+                      </button>
+                      <button className={`drop-item ${activeTab === 'admin_voter_analysis' ? 'active' : ''}`} onClick={() => handleNavClick('admin_voter_analysis')}>
+                        <ShieldAlert size={13} /> Szavazat Analitika
+                      </button>
+                      <button className={`drop-item ${activeTab === 'admin_points' ? 'active' : ''}`} onClick={() => handleNavClick('admin_points')}>
+                        <Sparkles size={13} /> Pontrendszer
+                      </button>
+                      <button className={`drop-item ${activeTab === 'admin_banned_emails' ? 'active' : ''}`} onClick={() => handleNavClick('admin_banned_emails')}>
+                        <Ban size={13} /> Tiltólista
+                      </button>
+                      <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} onClick={() => handleNavClick('admin_settings')}>
+                        <Settings size={13} /> {t('subManageSettings')}
+                      </button>
+                    </>
+                  )}
+
                 </div>
               )}
             </div>
@@ -557,7 +598,7 @@ export default function Header({
 
         </div> 
 
-        {/* ASZTALI JOBB OLDALI ELEMEK (TÉMA, NYELV, APK, PROFIL DROPDOWN) */}
+        {/* ASZTALI JOBB OLDALI ELEMEK */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           
           <a 
