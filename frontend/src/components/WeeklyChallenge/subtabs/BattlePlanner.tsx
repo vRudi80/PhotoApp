@@ -398,7 +398,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
                     
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <span>📷 {item.cover_author || 'Nincs megadva'}</span>
-                      {item.master_email && <span>👑 Csatabíró: {item.master_email}</span>}
+                      {item.master_email && <span>Képmester: {item.master_email}</span>}
                     </div>
                   </div>
 
