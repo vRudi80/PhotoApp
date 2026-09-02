@@ -4,7 +4,7 @@ import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
 import logoHu from './logo_hu2.png';
 import logoEn from './logo_en2.png';
-import packageJson from '../package.json';
+import packageJson from '../../package.json';
 
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
