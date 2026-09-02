@@ -685,7 +685,24 @@ function MainContent() {
     if (res.ok) { setUnvotedEntries(prev => prev.slice(1)); setCurrentScore(''); if (unvotedEntries.length === 1) { fetchMyEntries(user.email); fetchData(); } } 
   };
   const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`, { headers: getAuthHeaders() }); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
-  const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`, { headers: getAuthHeaders() }); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
+  const loadStats = async (contestId: number) => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/contests/${contestId}/stats`, {
+      headers: getAuthHeaders()
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setContestStats(data);
+      setViewStatsContestId(contestId); // 🎯 Nyitja a felugró panelt
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Nincs jogosultságod a nevezők megtekintéséhez!');
+    }
+  } catch (e) {
+    alert('Hálózati hiba történt a statisztika betöltésekor!');
+  }
+};
   const handleDeleteContest = async (id: number) => { if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?")) return; const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE', headers: getAuthHeaders() }); if (res.ok) fetchData(); };
   const loadJuryProgress = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`, { headers: getAuthHeaders() }); if (res.ok) { setJuryProgressData(await res.json()); setViewJuryProgressId(contestId); } };
   
